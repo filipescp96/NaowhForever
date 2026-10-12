@@ -3,14 +3,13 @@ local ns = _G.NaowhForever
 
 local S = ns.QoLSettings
 
-local BUTTON_SIZE = 22
+local BUTTON_SIZE = 18
 local BUTTON_GAP = 2
 local ROW_GAP = 4
 local OFF_ALPHA = 0.4
 local HIGHLIGHT = "Interface\\Buttons\\ButtonHilight-Square"
 local TEXT_TIP = "Show only players who signed up as %s. With no role picked, everyone shows."
 local TEXT_GROUPS = "Groups are hidden while a role is picked."
-local TEXT_TANK, TEXT_HEALER, TEXT_DAMAGE = "Tanks", "Healers", "Damage"
 
 local ROLES = {
     { key = "finderRolesTank", field = "tank", atlas = "groupfinder-icon-role-large-tank", name = "Tank" },
@@ -93,11 +92,13 @@ end
 local function MakeRow()
     row = CreateFrame("Frame", nil, finder)
     row:SetSize(#ROLES * BUTTON_SIZE + (#ROLES - 1) * BUTTON_GAP, BUTTON_SIZE)
-    row:SetPoint("LEFT", finder.RefreshButton, "RIGHT", ROW_GAP, 0)
+    row:SetPoint("RIGHT", finder.OptionsButton, "LEFT", -ROW_GAP, 0)
+    row:SetFrameLevel(math.max(finder.OptionsButton:GetFrameLevel(), finder.RefreshButton:GetFrameLevel()) + 1)
     row.buttons = {}
     for i, role in ipairs(ROLES) do
         local button = CreateFrame("Button", nil, row)
         button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
+        button:RegisterForClicks("LeftButtonUp")
         button:SetPoint("LEFT", (i - 1) * (BUTTON_SIZE + BUTTON_GAP), 0)
         button.icon = button:CreateTexture(nil, "ARTWORK")
         button.icon:SetAllPoints()
@@ -165,14 +166,8 @@ boot:SetScript("OnEvent", Apply)
 
 ns.Shared.Settings.Page("QoL/Questing & Group", S):Card({
     id = "finderRoles", name = "Group Finder Roles", order = 45, switch = "finderRoles",
-    help = "Tank, Healer and Damage buttons beside the Group Finder's refresh button. Pick one or more "
+    help = "Tank, Healer and Damage buttons at the top of the Group Finder, left of its options. Click one or more "
         .. "and the list shows only players who signed up for those roles, so looking for a healer "
         .. "shows only healers. Groups are hidden while a role is picked; with none picked, the list "
         .. "is the game's own. Your picks are kept for next time.",
-    rows = {
-        ns.Shared.Settings.Group("Show Only"),
-        { key = ROLES[1].key, label = TEXT_TANK, toggle = true },
-        { key = ROLES[2].key, label = TEXT_HEALER, toggle = true },
-        { key = ROLES[3].key, label = TEXT_DAMAGE, toggle = true },
-    },
 })
