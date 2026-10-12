@@ -301,8 +301,9 @@ NaowhForever_QoL/
 - Group Finder Roles filters the list after the game builds it (`LFGBrowseFrame:UpdateResultList`,
   hooked once `Blizzard_GroupFinder_VanillaStyle` loads) and redraws it. A solo lister's roles are
   the `lfgRoles` they signed up with; a group has only each member's assigned role, which says
-  nothing about who you can invite, so groups are hidden while a role is picked. Your own listing
-  always stays. Invite and Send Message call `InviteToGroup` and a whisper, neither protected, so
+  nothing about who you can invite, so the player buttons match solo listers only. The Groups need
+  buttons read `GetSearchResultMemberCounts`' `*_REMAINING` counts, the open spots Blizzard's own
+  sort uses, and match groups only. Your own listing always stays. Invite and Send Message call `InviteToGroup` and a whisper, neither protected, so
   writing the frame's result list taints nothing that matters.
 - A guildmate's zone may have changed since the last roster, so guild chat from one not fresh
   asks for the roster again (the game throttles that).
