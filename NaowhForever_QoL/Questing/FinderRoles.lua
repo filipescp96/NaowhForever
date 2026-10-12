@@ -3,13 +3,15 @@ local ns = _G.NaowhForever
 
 local S = ns.QoLSettings
 
-local BUTTON_SIZE = 18
-local BUTTON_GAP = 2
-local ROW_GAP = 4
+local BUTTON_SIZE = 22
+local BUTTON_GAP = 4
+local LABEL_GAP = 8
+local ROW_DROP = 10
 local OFF_ALPHA = 0.4
 local HIGHLIGHT = "Interface\\Buttons\\ButtonHilight-Square"
 local TEXT_TIP = "Show only players who signed up as %s. With no role picked, everyone shows."
 local TEXT_GROUPS = "Groups are hidden while a role is picked."
+local TEXT_LABEL = "Show only:"
 
 local ROLES = {
     { key = "finderRolesTank", field = "tank", atlas = "groupfinder-icon-role-large-tank", name = "Tank" },
@@ -91,15 +93,18 @@ end
 
 local function MakeRow()
     row = CreateFrame("Frame", nil, finder)
-    row:SetSize(#ROLES * BUTTON_SIZE + (#ROLES - 1) * BUTTON_GAP, BUTTON_SIZE)
-    row:SetPoint("RIGHT", finder.OptionsButton, "LEFT", -ROW_GAP, 0)
-    row:SetFrameLevel(math.max(finder.OptionsButton:GetFrameLevel(), finder.RefreshButton:GetFrameLevel()) + 1)
+    row:SetHeight(BUTTON_SIZE)
+    row:SetPoint("TOPLEFT", finder.CategoryDropdown, "BOTTOMLEFT", 0, -ROW_DROP)
+    row:SetFrameLevel(finder.CategoryDropdown:GetFrameLevel() + 1)
+    local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    label:SetPoint("LEFT")
+    label:SetText(TEXT_LABEL)
     row.buttons = {}
     for i, role in ipairs(ROLES) do
         local button = CreateFrame("Button", nil, row)
         button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
         button:RegisterForClicks("LeftButtonUp")
-        button:SetPoint("LEFT", (i - 1) * (BUTTON_SIZE + BUTTON_GAP), 0)
+        button:SetPoint("LEFT", label, "RIGHT", LABEL_GAP + (i - 1) * (BUTTON_SIZE + BUTTON_GAP), 0)
         button.icon = button:CreateTexture(nil, "ARTWORK")
         button.icon:SetAllPoints()
         button.icon:SetAtlas(role.atlas)
@@ -110,6 +115,7 @@ local function MakeRow()
         button:SetScript("OnLeave", GameTooltip_Hide)
         row.buttons[i] = button
     end
+    row:SetWidth(label:GetStringWidth() + LABEL_GAP + #ROLES * (BUTTON_SIZE + BUTTON_GAP))
 end
 
 local function HookFinder()
@@ -166,7 +172,7 @@ boot:SetScript("OnEvent", Apply)
 
 ns.Shared.Settings.Page("QoL/Questing & Group", S):Card({
     id = "finderRoles", name = "Group Finder Roles", order = 45, switch = "finderRoles",
-    help = "Tank, Healer and Damage buttons at the top of the Group Finder, left of its options. Click one or more "
+    help = "Tank, Healer and Damage buttons under the Group Finder's Category filter. Click one or more "
         .. "and the list shows only players who signed up for those roles, so looking for a healer "
         .. "shows only healers. Groups are hidden while a role is picked; with none picked, the list "
         .. "is the game's own. Your picks are kept for next time.",
