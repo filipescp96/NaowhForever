@@ -7,7 +7,7 @@ local St = ns.Shared.Style
 local S = ns.QoLSettings
 
 local PAD, HEAD_H, ROW_H, ROW_MIN_H = 14, 40, 28, 18
-local LABEL_SIZE, NAME_SIZE, SMALL_SIZE = 13, 14, 11
+local LABEL_SIZE, NAME_SIZE, SMALL_SIZE, FOOT_SIZE = 13, 14, 11, 9
 local GROUP_DROP, LABEL_GAP = 7, 8
 local RULE_ALPHA = 0.6
 local PANEL_W = 330
@@ -21,7 +21,7 @@ local CLOSE_SIZE, CLOSE_IN = 22, 9
 local BUTTON_SIZE, BUTTON_GAP, BUTTON_RIGHT, BUTTON_TOP = 32, 2, 4, 2
 local BUTTON_ALPHA = 0.9
 local ICON_INSET = 4
-local TRACK_W, BOX_W, BOX_H, BOX_ALPHA, SLIDER_GAP = 90, 40, 18, 1, 8
+local TRACK_W, BOX_W, BOX_H, BOX_ALPHA, SLIDER_GAP = 70, 30, 14, 1, 6
 
 local TEXT_TITLE = "Map Pins"
 local TEXT_TIP = "Click to choose which pins show on the map."
@@ -112,7 +112,7 @@ end
 
 local function BuildSlider(frame, row)
     local range = ns.TownPinRange
-    local track, box = UI.BuildSliderCore(frame, TRACK_W, St.SLIDER_H, St.KNOB, BOX_W, BOX_H, SMALL_SIZE, BOX_ALPHA,
+    local track, box = UI.BuildSliderCore(frame, TRACK_W, St.SLIDER_H, St.KNOB, BOX_W, BOX_H, FOOT_SIZE, BOX_ALPHA,
         range[1], range[2], range[3],
         function() return S.Get(row.key) end,
         function(value) SetRow(row.key, value) end)
@@ -135,7 +135,7 @@ local function MakeRow(parent, row)
     frame:EnableMouse(true)
     Rule(frame)
     local control = row.slider and BuildSlider(frame, row) or BuildToggle(frame, row)
-    local label = ns.Font(frame, row.slider and SMALL_SIZE or LABEL_SIZE, nil, row.slider and T.muted or T.fg)
+    local label = ns.Font(frame, row.slider and FOOT_SIZE or LABEL_SIZE, nil, row.slider and T.muted or T.fg)
     label:SetJustifyH("LEFT")
     label:SetWordWrap(false)
     label:SetPoint("LEFT", PAD, 0)
