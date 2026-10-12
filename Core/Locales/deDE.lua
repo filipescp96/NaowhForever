@@ -2,6 +2,13 @@
 local L = _G.NaowhForeverLocale
 if not L then return end
 
+L["Group Finder Roles"] = "Rollen in der Gruppensuche"
+L["Groups need:"] = "Gruppen brauchen:"
+L["Players and groups match only their own buttons. With nothing picked, everything shows."] = "Spieler und Gruppen passen nur zu ihren eigenen Knöpfen. Ist nichts ausgewählt, wird alles angezeigt."
+L["Players:"] = "Spieler:"
+L["Role buttons under the Group Finder's Category filter. Players: shows only players who signed up for the roles you click, so looking for a healer shows only healers. Groups need: shows only groups that still have room for those roles. Your own listing always shows; with nothing clicked, the list is the game's own. Your picks are kept for next time."] = "Rollenknöpfe unter dem Kategoriefilter der Gruppensuche. Spieler: zeigt nur Spieler, die sich für die angeklickten Rollen angemeldet haben, die Suche nach einem Heiler zeigt also nur Heiler. Gruppen brauchen: zeigt nur Gruppen, die für diese Rollen noch Platz haben. Dein eigener Eintrag wird immer angezeigt; ist nichts angeklickt, ist die Liste die des Spiels. Deine Auswahl bleibt für das nächste Mal erhalten."
+L["Show groups that still have room for a %s."] = "Zeigt Gruppen, die noch Platz für die Rolle %s haben."
+L["Show players who signed up as %s."] = "Zeigt Spieler, die sich als %s angemeldet haben."
 L["Threat Meter"] = "Bedrohungsanzeige"
 L["Meter"] = "Anzeige"
 L["Profiles"] = "Profile"

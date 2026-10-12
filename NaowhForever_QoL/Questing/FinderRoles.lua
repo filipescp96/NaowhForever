@@ -10,11 +10,11 @@ local SET_GAP = 16
 local ROW_DROP = 10
 local OFF_ALPHA = 0.4
 local HIGHLIGHT = "Interface\\Buttons\\ButtonHilight-Square"
-local TEXT_PLAYERS = "Players:"
-local TEXT_NEEDS = "Groups need:"
-local TEXT_PLAYER_TIP = "Show players who signed up as %s."
-local TEXT_NEED_TIP = "Show groups that still have room for a %s."
-local TEXT_REST = "Players and groups match only their own buttons. With nothing picked, everything shows."
+local TEXT_PLAYERS = ns.L("Players:")
+local TEXT_NEEDS = ns.L("Groups need:")
+local TEXT_PLAYER_TIP = ns.L("Show players who signed up as %s.")
+local TEXT_NEED_TIP = ns.L("Show groups that still have room for a %s.")
+local TEXT_REST = ns.L("Players and groups match only their own buttons. With nothing picked, everything shows.")
 
 local TANK = { field = "tank", remaining = "TANK_REMAINING", atlas = "groupfinder-icon-role-large-tank", name = "Tank" }
 local HEALER = { field = "healer", remaining = "HEALER_REMAINING", atlas = "groupfinder-icon-role-large-heal", name = "Healer" }
@@ -115,7 +115,7 @@ local function OnClick(button)
 end
 
 local function OnEnter(button)
-    local name = button.pick.role.name
+    local name = ns.L(button.pick.role.name)
     GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
     GameTooltip:SetText(name, 1, 1, 1)
     GameTooltip:AddLine(button.set.tip:format(name), nil, nil, nil, true)

@@ -2,6 +2,13 @@
 local L = _G.NaowhForeverLocale or {}
 _G.NaowhForeverLocale = L
 
+L["Group Finder Roles"] = true
+L["Groups need:"] = true
+L["Players and groups match only their own buttons. With nothing picked, everything shows."] = true
+L["Players:"] = true
+L["Role buttons under the Group Finder's Category filter. Players: shows only players who signed up for the roles you click, so looking for a healer shows only healers. Groups need: shows only groups that still have room for those roles. Your own listing always shows; with nothing clicked, the list is the game's own. Your picks are kept for next time."] = true
+L["Show groups that still have room for a %s."] = true
+L["Show players who signed up as %s."] = true
 L["Threat Meter"] = true
 L["Meter"] = true
 L["Profiles"] = true
