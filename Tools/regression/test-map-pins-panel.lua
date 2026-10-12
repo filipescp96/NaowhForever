@@ -24,7 +24,7 @@ Check(Read("NaowhForever_QoL/Interface/TownMap.xml"):find('<Script file="MapPins
 
 local settings = { enabled = true, townMap = false }
 local S = { Get = function(key) return settings[key] end, Set = function(key, v) settings[key] = v end }
-local ns = { QoLSettings = S, Apply = function() end, THEME = { bg = {}, line = {}, accent = {}, accentSoft = {}, panel = {}, fg = {} }, UI = {} }
+local ns = { QoLSettings = S, Apply = function() end, THEME = { bg = {}, line = {}, accent = {}, accentSoft = {}, panel = {}, fg = {}, muted = {} }, UI = {} }
 local made, boot, button, panel = 0, nil, nil, nil
 local mapLeft, maximized, mapHeight = 500, false, 700
 local canvasLeft = 350

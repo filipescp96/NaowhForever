@@ -34,7 +34,6 @@ local ROWS = {
     { key = "townMinimap", text = "Mailboxes on Minimap", tip = "Pins the mailboxes near you on the minimap." },
     { key = "townMinimapSpirit", text = "Spirit Healers on Minimap",
       tip = "Pins the spirit healers near you on the minimap." },
-    { key = "townPinSize", text = "Pin Size", slider = true, tip = "How big the pins are on the world map." },
     { header = "SHOW" },
     { key = "townFlight", text = "Flight Masters" },
     { key = "townInn", text = "Innkeepers" },
@@ -51,6 +50,7 @@ local ROWS = {
     { key = "townSupplies", text = "Reagents, Ammo & Food" },
     { key = "townStable", text = "Stable Masters" },
     { key = "townVendors", text = "Other Vendors", tip = "Trade goods and every other merchant." },
+    { key = "townPinSize", text = "Pin Size", slider = true, tip = "How big the pins are on the world map." },
 }
 
 local button, buttonBorder, panel
@@ -112,7 +112,7 @@ end
 
 local function BuildSlider(frame, row)
     local range = ns.TownPinRange
-    local track, box = UI.BuildSliderCore(frame, TRACK_W, St.SLIDER_H, St.KNOB, BOX_W, BOX_H, LABEL_SIZE, BOX_ALPHA,
+    local track, box = UI.BuildSliderCore(frame, TRACK_W, St.SLIDER_H, St.KNOB, BOX_W, BOX_H, SMALL_SIZE, BOX_ALPHA,
         range[1], range[2], range[3],
         function() return S.Get(row.key) end,
         function(value) SetRow(row.key, value) end)
@@ -135,7 +135,7 @@ local function MakeRow(parent, row)
     frame:EnableMouse(true)
     Rule(frame)
     local control = row.slider and BuildSlider(frame, row) or BuildToggle(frame, row)
-    local label = ns.Font(frame, LABEL_SIZE, nil, T.fg)
+    local label = ns.Font(frame, row.slider and SMALL_SIZE or LABEL_SIZE, nil, row.slider and T.muted or T.fg)
     label:SetJustifyH("LEFT")
     label:SetWordWrap(false)
     label:SetPoint("LEFT", PAD, 0)
