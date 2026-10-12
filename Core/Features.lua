@@ -89,6 +89,7 @@ ns.FEATURES = {
         petTracker = false,
         equipReminder = true,
         chatZones = false,
+        finderRoles = false,
         mouseRing = false,
         gcdTracker = false,
         focusCastBar = false,

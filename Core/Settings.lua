@@ -198,6 +198,7 @@ local S = UI.ModuleSettings("qol", {
     equipReminder = F.equipReminder, equipOnInstance = true, equipOnReadyCheck = true, equipAutoHide = 10,
     equipIconSize = 40, equipEnchants = true, equipEnchantRules = {},
     chatZones = F.chatZones, chatZonesLevel = true, chatZonesClassColour = true, chatZonesFinder = true, chatZonesWhere = true, chatZonesMaxAge = 15, chatZonesAsk = true, chatZonesShare = false,
+    finderRoles = F.finderRoles, finderRolesTank = false, finderRolesHealer = false, finderRolesDps = false,
 
     mouseRing = F.mouseRing, mouseShape = "ring.tga", mouseSize = 48,
     mouseColor = { r = 1, g = 0.66, b = 0 }, mouseClassColor = false,

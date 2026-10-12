@@ -57,6 +57,7 @@ NaowhForever_QoL/
                         ns.InviteAll, ns.ShowInviteEditor)
     GroupButtons.lua    On-Screen Buttons (Invite, your invite buttons, Invite All, Disband)
     FreeForAll.lua      Always Free for All, the party loot method while you lead
+    FinderRoles.lua     Group Finder Roles, the role buttons on the Group Finder
     TalentPoints.lua    the unspent talent points reminder
     QuestAutomation.lua accept, hand in and share quests, saved reward picks
     PlayerHistory.lua   Player History (ns.PlayerHistory), read by the Naowh Inspect panel
@@ -297,6 +298,12 @@ NaowhForever_QoL/
   wide (155, 2 in). Forever's rows differ from Classic Era's, so the zone takes the activity
   line's font and stops short of the role icons, measured on screen (the icons are scaled).
   The game sends only the leader's zone; other members show one if it is known elsewhere.
+- Group Finder Roles filters the list after the game builds it (`LFGBrowseFrame:UpdateResultList`,
+  hooked once `Blizzard_GroupFinder_VanillaStyle` loads) and redraws it. A solo lister's roles are
+  the `lfgRoles` they signed up with; a group has only each member's assigned role, which says
+  nothing about who you can invite, so groups are hidden while a role is picked. Your own listing
+  always stays. Invite and Send Message call `InviteToGroup` and a whisper, neither protected, so
+  writing the frame's result list taints nothing that matters.
 - A guildmate's zone may have changed since the last roster, so guild chat from one not fresh
   asks for the roster again (the game throttles that).
 - The Co-Tank Frame's debuffs go through Blizzard's aura container (`CustomAuraContainerTemplate`),
