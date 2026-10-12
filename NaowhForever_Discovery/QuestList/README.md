@@ -128,9 +128,20 @@ quest and creature pages. Do not edit them by hand: change the tool and run it a
   every nameplate comes through. Any creature the game calls rare counts, in the data or not.
 - `AGAIN_AFTER` is 300: each rare alerts once in five minutes, not every time its nameplate comes
   back. A rare you killed alerts only with Alert for Killed Rares.
-- Completo never marks a rare: raid marks are Blizzard-only on Forever (`SetRaidTarget` has
-  `HasRestrictions`), so an addon calling it is blocked. A marking feature would need a secure
-  click button running the game's `/tm`.
+- Completo's Lua never marks a rare: raid marks are Blizzard-only on Forever (`SetRaidTarget` has
+  `HasRestrictions`), so an addon calling it is blocked. Clicking the alert card instead runs a
+  secure macro button (`NaowhForeverRareAlertTarget`): `/cleartarget`, `/targetexact` the rare's
+  name, then the game's own `/tm 8` for the skull. `/cleartarget` comes first so a rare out of
+  reach leaves nothing targeted, and `/tm` does not skull whatever was targeted before. `/tm` is
+  left out when the target or mouseover is already that rare with a skull, so a second click does
+  not take it off.
+- The click button is its own frame on UIParent, laid over the card, not a child of it: a secure
+  child would make the holder protected, and the HUD Editor could no longer move it in combat. It
+  is shown, placed and given its macro out of combat only; an alert in combat shows the card
+  without it (right-click still closes), and it follows once the combat ends. A card put away in
+  combat leaves the button, invisible, until then, and a second rare's alert in combat
+  still targets the first rare on click until then. Unlock Mode puts it away for the mover. It sits
+  a level under the waypoint pin, so the pin keeps its click.
 - The sounds offered are the game's: SOUNDKIT names (left out where the client lacks one), kit IDs
   for the flag sounds SOUNDKIT has no name for, and the sound file IDs rare scanners use, the
   Gruntling Horn first. The addon's spoken lines and the error collector's sound are left out. A

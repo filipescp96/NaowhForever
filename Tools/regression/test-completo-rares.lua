@@ -4,9 +4,10 @@
 -- Rare Alerts: a rare's nameplate brings the alert, once per rare in a while; not for a dead or
 -- friendly one, nor one you killed unless Alert for Killed Rares; it fades after Stays For and moves
 -- in the HUD Editor; Unlock Mode previews it; the settings preview draws each moment; nothing is
--- registered while it is off. Raid marks are Blizzard-only on Forever: SetRaidTarget and the other
--- marker calls raise an error here, so no rare path (nameplate, mouseover, target, minimap, Test
--- Alert, Unlock Mode, the settings preview) may call them.
+-- registered while it is off. Clicking the card targets the rare and skulls it with the game's /tm
+-- (a secure button, set out of combat only). Raid marks are Blizzard-only on Forever: SetRaidTarget
+-- and the other marker calls raise an error here, so no Lua rare path (nameplate, mouseover, target,
+-- minimap, Test Alert, Unlock Mode, the settings preview) may call them.
 -- Map Pins: hover a star for its tooltip, click it for a waypoint, right-click it to keep its spots
 -- and way shown (no panel).
 
@@ -44,6 +45,10 @@ local function Region()
     function r:GetEffectiveScale() return self.scale end
     function r:GetCenter() return 410.4 / self.scale, 619.6 / self.scale end
     function r:SetPoint(point, _, _, x, y) self.point, self.at = point, { x, y } end
+    function r:GetRect() return 260, 593, 300, 54 end
+    function r:SetSize(w, h) self.w, self.h = w, h end
+    function r:EnableMouse(on) self.mouse = on and true or false end
+    function r:SetAttribute(k, v) self.attributes = self.attributes or {}; self.attributes[k] = v end
     -- A portrait model: what it was last set to show.
     function r:ClearModel() self.unit, self.creature = nil, nil end
     function r:SetUnit(unit) self.unit = unit end
@@ -156,7 +161,8 @@ local function Fixture(settings, units)
     env.PlaySound = function() env.sounds = env.sounds + 1 end
     env.PlaySoundFile = function(file) env.soundFile = file; env.sounds = env.sounds + 1 end
     env.SOUNDKIT = { RAID_WARNING = 8959 }
-    env.C_Timer = { NewTimer = function() return { Cancel = function() end } end }
+    env.C_Timer = { NewTimer = function() return { Cancel = function() end } end, After = function(_, fn) fn() end }
+    env.GetRaidTargetIndex = function(unit) return units[unit] and units[unit].mark end
     env.C_Map = { GetBestMapForUnit = function() return 1440 end, GetMapInfo = function() end }
     env.vignettes = {}
     env.C_VignetteInfo = { GetVignetteInfo = function(id) return env.vignettes[id] end }
@@ -194,6 +200,7 @@ local function Fixture(settings, units)
     env.CreateFrame = function(kind, name, ...)
         local f = create(kind, name, ...)
         if name == "NaowhForeverRareAlert" then ns.alert = f end
+        if name == "NaowhForeverRareAlertTarget" then ns.clicker = f end
         return f
     end
     -- The HUD Editor's plates, by label.
@@ -782,6 +789,39 @@ do
     Check(preview.card.mark == nil and ns.alert.mark == nil, "neither card has a raid mark")
     Check(env.restricted == 0, "and nothing called SetRaidTarget or another Blizzard-only marker call")
     Check(settings.rareMarker == "skull", "an old Mark Rare choice stays in the saved settings, unused")
+end
+
+-- Clicking the card targets the rare and puts a skull on it, by the game's own /tm
+do
+    local units = {}
+    local settings = { enabled = true, rareAlert = true, rareSound = true }
+    local ns, env = Fixture(settings, units)
+    units.nameplate1 = { guid = Guid(10644), name = "Mist Howler", kind = "rare", level = 22 }
+    env.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+    local clicker = ns.clicker
+    local macro = clicker.attributes["*macrotext1"]
+    Check(clicker:IsShown() and clicker.attributes["*type1"] == "macro", "an alert shows the click button")
+    Check(macro == "/cleartarget\n/targetexact Mist Howler\n/tm 8", "which targets the rare and marks it a skull")
+    Check(ns.alert.mouse == false, "and the card under it lets the clicks through")
+    units.target = { guid = Guid(10644), name = "Mist Howler", kind = "rare", level = 22, mark = 8 }
+    clicker.PreClick(clicker, "LeftButton")
+    Check(clicker.attributes["*macrotext1"] == "/cleartarget\n/targetexact Mist Howler",
+        "a rare already a skull is only targeted, so /tm does not take the skull off")
+    clicker.PostClick(clicker, "RightButton")
+    Check(not ns.alert:IsShown() and not clicker:IsShown(), "right-click closes the card and its click button")
+    units.combat = true
+    env.Advance(400)
+    env.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+    Check(ns.alert:IsShown() and not clicker:IsShown() and ns.alert.mouse ~= false,
+        "in combat the card shows, but the click button waits")
+    units.combat = nil
+    env.Fire("PLAYER_REGEN_ENABLED")
+    Check(clicker:IsShown() and ns.alert.mouse == false, "until the combat ends")
+    ns.ShowUnlockMode()
+    Check(not clicker:IsShown(), "Unlock Mode puts the click button away, for the mover")
+    ns.HideUnlockMode()
+    Check(clicker:IsShown(), "and brings it back after")
+    Check(env.restricted == 0, "nothing called SetRaidTarget")
 end
 
 -- Map Pins

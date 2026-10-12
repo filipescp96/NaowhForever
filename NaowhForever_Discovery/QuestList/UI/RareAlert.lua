@@ -20,8 +20,15 @@ local RARE = { rare = true, rareelite = true }
 local LOOK_PREFIX = "^rareAlert"
 local TEXT_RARE = "Rare"
 local TEXT_CLOSE = "Right-click to close it."
+local TEXT_TARGET = "Click to target it and put a skull on it."
+local CLICKER_NAME = "NaowhForeverRareAlertTarget"
+local SKULL = 8
+local MACRO_TARGET = "/cleartarget\n/targetexact %s"
+local MACRO_MARK = "\n/tm " .. SKULL
+local MARK_UNITS = { "target", "mouseover" }
 
-local alert, holder
+local alert, holder, clicker
+local clickerDue, clickerRetry
 local shownNpc, shownGuid
 local alerted = {}
 local events = CreateFrame("Frame")
@@ -33,12 +40,74 @@ local function On()
     return S.Get("enabled") and S.Get("rareAlert")
 end
 
+local function TargetName()
+    local seen = alert.seen
+    if alert.preview or not seen or not seen.npc then return nil end
+    local name = seen.name
+    if type(name) ~= "string" or R.IsSecret(name) or name == "" or name:find("\n", 1, true) then return nil end
+    return name
+end
+
+local function Marked(name)
+    for _, unit in ipairs(MARK_UNITS) do
+        local same = UnitExists(unit) and UnitName(unit)
+        if not R.IsSecret(same) and same == name then
+            local index = GetRaidTargetIndex(unit)
+            if not R.IsSecret(index) and index == SKULL then return true end
+        end
+    end
+    return false
+end
+
+local function SetMacro(name)
+    local text = MACRO_TARGET:format(name)
+    if not Marked(name) then text = text .. MACRO_MARK end
+    clicker:SetAttribute("*macrotext1", text)
+end
+
+local function PlaceClicker()
+    local s = alert:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    local l, b, w, h = alert:GetRect()
+    if not l then return false end
+    clicker:ClearAllPoints()
+    clicker:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l * s, b * s)
+    clicker:SetSize(w * s, h * s)
+    return true
+end
+
+local function SyncClicker()
+    if not clicker then return end
+    if InCombatLockdown() then
+        clickerDue = true
+        events:RegisterEvent("PLAYER_REGEN_ENABLED")
+        alert:EnableMouse(not clicker:IsShown())
+        return
+    end
+    clickerDue = nil
+    local name = alert:IsShown() and not holder.mover:IsShown() and TargetName()
+    local placed = name and PlaceClicker()
+    clickerRetry = placed and nil or clickerRetry
+    if placed then
+        SetMacro(name)
+        clicker:Show()
+    else
+        clicker:Hide()
+        if name and not clickerRetry then
+            clickerRetry = true
+            C_Timer.After(0, SyncClicker)
+            return
+        end
+    end
+    alert:EnableMouse(not clicker:IsShown())
+end
+
 local function HideAlert()
     if not alert then return end
     alert.fade:Stop()
     alert:Hide()
     shownNpc, shownGuid = nil, nil
     events:UnregisterEvent("UNIT_FLAGS")
+    SyncClicker()
 end
 
 local function Place()
@@ -58,9 +127,11 @@ local function CardClicked(_, button)
 end
 
 local function CardEnter(card)
+    if not alert:IsShown() then return end
     local soft = T.accentSoft
     GameTooltip:SetOwner(card, "ANCHOR_TOP")
-    GameTooltip:SetText(card.name:GetText() or TEXT_RARE, 1, 1, 1)
+    GameTooltip:SetText(alert.name:GetText() or TEXT_RARE, 1, 1, 1)
+    if card == clicker then GameTooltip:AddLine(TEXT_TARGET, soft.r, soft.g, soft.b) end
     GameTooltip:AddLine(TEXT_CLOSE, soft.r, soft.g, soft.b)
     GameTooltip:Show()
 end
@@ -92,6 +163,29 @@ local function BuildHolder()
     holder.mover = ns.UI.AttachMover(holder, MOVER_LABEL, Moved, MOVER_PAGE, MOVER_FEATURE)
 end
 
+local function ClickerPre(_, button)
+    if button ~= "LeftButton" or InCombatLockdown() then return end
+    local name = TargetName()
+    if name then SetMacro(name) end
+end
+
+local function ClickerPost(_, button)
+    if button == "RightButton" then HideAlert() end
+end
+
+local function BuildClicker()
+    clicker = CreateFrame("Button", CLICKER_NAME, UIParent, "SecureActionButtonTemplate")
+    clicker:SetFrameStrata(STRATA)
+    clicker:SetFrameLevel(math.max(alert.pin:GetFrameLevel() - 1, 0))
+    clicker:RegisterForClicks("AnyUp", "AnyDown")
+    clicker:SetAttribute("*type1", "macro")
+    clicker:SetScript("PreClick", ClickerPre)
+    clicker:SetScript("PostClick", ClickerPost)
+    clicker:SetScript("OnEnter", CardEnter)
+    clicker:SetScript("OnLeave", CardLeave)
+    clicker:Hide()
+end
+
 local function BuildAlert()
     BuildHolder()
     alert = Card.New(holder, CARD_NAME)
@@ -106,6 +200,7 @@ local function BuildAlert()
     alert.fade:SetScript("OnFinished", HideAlert)
     alert:Hide()
     Place()
+    BuildClicker()
 end
 
 local function PlayAlertSound()
@@ -140,6 +235,7 @@ local function ShowAlert(seen, quiet)
     alert.fade:Stop()
     alert:Show()
     if track then events:RegisterEvent("UNIT_FLAGS") else events:UnregisterEvent("UNIT_FLAGS") end
+    SyncClicker()
     if not quiet then Play() end
 end
 
@@ -257,6 +353,9 @@ end
 local function OnEvent(_, event, unit, onMinimap)
     if event == "UNIT_FLAGS" then
         OnFlags(unit)
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        events:UnregisterEvent(event)
+        SyncClicker()
     elseif event == "NAME_PLATE_UNIT_ADDED" then
         Check(unit)
     elseif event == "PLAYER_TARGET_CHANGED" then
@@ -282,6 +381,7 @@ local function Apply()
     Migrate()
     if holder then Place() end
     events:UnregisterAllEvents()
+    if clickerDue then events:RegisterEvent("PLAYER_REGEN_ENABLED") end
     if not On() then
         HideAlert()
         return
@@ -304,7 +404,10 @@ end
 
 local function OnSet(key)
     if key == "enabled" or key == "rareAlert" then Apply() end
-    if key == "rareAlertScale" and holder then Place() end
+    if key == "rareAlertScale" and holder then
+        Place()
+        SyncClicker()
+    end
     if key == "rareAlertTime" and alert and alert.fade:IsPlaying() then RestartFade() end
     if alert and alert:IsShown() and key:find(LOOK_PREFIX) and key ~= "rareAlertPosition" then
         Card.Paint(alert, alert.seen)
@@ -315,12 +418,13 @@ local function ShowMover()
     if not On() then return end
     if not (alert and alert:IsShown()) then ShowAlert(Sample(), true) end
     holder.mover:Show()
+    SyncClicker()
 end
 
 local function HideMover()
     if not alert then return end
     holder.mover:Hide()
-    if alert.preview then HideAlert() end
+    if alert.preview then HideAlert() else SyncClicker() end
 end
 
 local function OnLogin(self)
@@ -334,7 +438,9 @@ end
 
 function RareAlert.ResetPosition()
     S.Set("rareAlertPosition", nil)
-    if holder then Place() end
+    if not holder then return end
+    Place()
+    SyncClicker()
 end
 
 events:SetScript("OnEvent", OnEvent)
