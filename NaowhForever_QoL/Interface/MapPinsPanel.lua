@@ -6,7 +6,7 @@ local UI = ns.UI
 local St = ns.Shared.Style
 local S = ns.QoLSettings
 
-local PAD, HEAD_H, ROW_H, ROW_MIN_H = 14, 40, 28, 20
+local PAD, HEAD_H, ROW_H, ROW_MIN_H = 14, 40, 28, 18
 local LABEL_SIZE, NAME_SIZE, SMALL_SIZE = 13, 14, 11
 local GROUP_DROP, LABEL_GAP = 7, 8
 local RULE_ALPHA = 0.6
@@ -21,6 +21,7 @@ local CLOSE_SIZE, CLOSE_IN = 22, 9
 local BUTTON_SIZE, BUTTON_GAP, BUTTON_RIGHT, BUTTON_TOP = 32, 2, 4, 2
 local BUTTON_ALPHA = 0.9
 local ICON_INSET = 4
+local TRACK_W, BOX_W, BOX_H, BOX_ALPHA, SLIDER_GAP = 90, 40, 18, 1, 8
 
 local TEXT_TITLE = "Map Pins"
 local TEXT_TIP = "Click to choose which pins show on the map."
@@ -33,6 +34,7 @@ local ROWS = {
     { key = "townMinimap", text = "Mailboxes on Minimap", tip = "Pins the mailboxes near you on the minimap." },
     { key = "townMinimapSpirit", text = "Spirit Healers on Minimap",
       tip = "Pins the spirit healers near you on the minimap." },
+    { key = "townPinSize", text = "Pin Size", slider = true, tip = "How big the pins are on the world map." },
     { header = "SHOW" },
     { key = "townFlight", text = "Flight Masters" },
     { key = "townInn", text = "Innkeepers" },
@@ -108,15 +110,31 @@ local function SetRow(key, value)
     if UI.RefreshPage then UI:RefreshPage(true) end
 end
 
+local function BuildSlider(frame, row)
+    local range = ns.TownPinRange
+    local track, box = UI.BuildSliderCore(frame, TRACK_W, St.SLIDER_H, St.KNOB, BOX_W, BOX_H, LABEL_SIZE, BOX_ALPHA,
+        range[1], range[2], range[3],
+        function() return S.Get(row.key) end,
+        function(value) SetRow(row.key, value) end)
+    box:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
+    track:SetPoint("RIGHT", box, "LEFT", -SLIDER_GAP, 0)
+    return track
+end
+
+local function BuildToggle(frame, row)
+    local control = UI.BuildToggleControl(frame, frame:GetFrameLevel() + CONTROL_LEVEL,
+        function() return S.Get(row.key) end,
+        function(value) SetRow(row.key, value) end)
+    control:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
+    return control
+end
+
 local function MakeRow(parent, row)
     local frame = Strip(parent, 0, ROW_H)
     strips[#strips + 1] = frame
     frame:EnableMouse(true)
     Rule(frame)
-    local control = UI.BuildToggleControl(frame, frame:GetFrameLevel() + CONTROL_LEVEL,
-        function() return S.Get(row.key) end,
-        function(value) SetRow(row.key, value) end)
-    control:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
+    local control = row.slider and BuildSlider(frame, row) or BuildToggle(frame, row)
     local label = ns.Font(frame, LABEL_SIZE, nil, T.fg)
     label:SetJustifyH("LEFT")
     label:SetWordWrap(false)

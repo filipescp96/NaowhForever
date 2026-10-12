@@ -65,6 +65,9 @@ local function Text() return { SetPoint = function() end, SetText = function() e
 ns.Font = Text
 ns.Button = function() return { SetPoint = function() end } end
 ns.UI.BuildToggleControl = function() return { SetPoint = function() end, _refreshValue = function() end } end
+ns.UI.BuildSliderCore = function() return { SetPoint = function() end, _refreshValue = function() end },
+    { SetPoint = function() end } end
+ns.TownPinRange = { 10, 28, 1 }
 local env = setmetatable({
     _G = { NaowhForever = ns },
     CreateFrame = function(kind)
