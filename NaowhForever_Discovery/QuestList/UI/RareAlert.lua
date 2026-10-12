@@ -23,9 +23,14 @@ local TEXT_CLOSE = "Right-click to close it."
 local TEXT_TARGET = "Click to target it and put a skull on it."
 local CLICKER_NAME = "NaowhForeverRareAlertTarget"
 local SKULL = 8
-local MACRO_TARGET = "/cleartarget\n/targetexact %s"
+local MACRO_CLEAR = "/cleartarget"
+local MACRO_EXACT = "\n/targetexact %s"
+local MACRO_TARGET = MACRO_CLEAR .. MACRO_EXACT
 local MACRO_MARK = "\n/tm " .. SKULL
 local MARK_UNITS = { "target", "mouseover" }
+local MACRO_UNIT = "/cleartarget\n/target %s"
+local PLATE_UNIT = "^nameplate%d+$"
+local HIDDEN_KEY = "hidden"
 
 local alert, holder, clicker
 local clickerDue, clickerRetry
@@ -40,29 +45,57 @@ local function On()
     return S.Get("enabled") and S.Get("rareAlert")
 end
 
-local function TargetName()
-    local seen = alert.seen
-    if alert.preview or not seen or not seen.npc then return nil end
+local function TargetName(seen)
     local name = seen.name
     if type(name) ~= "string" or R.IsSecret(name) or name == "" or name:find("\n", 1, true) then return nil end
     return name
 end
 
+local function Skulled(unit)
+    local index = GetRaidTargetIndex(unit)
+    return not R.IsSecret(index) and index == SKULL
+end
+
 local function Marked(name)
     for _, unit in ipairs(MARK_UNITS) do
         local same = UnitExists(unit) and UnitName(unit)
-        if not R.IsSecret(same) and same == name then
-            local index = GetRaidTargetIndex(unit)
-            if not R.IsSecret(index) and index == SKULL then return true end
-        end
+        if not R.IsSecret(same) and same == name and Skulled(unit) then return true end
     end
     return false
 end
 
-local function SetMacro(name)
+local function NameMacro(seen)
+    local name = seen.npc and TargetName(seen)
+    if not name then return nil end
     local text = MACRO_TARGET:format(name)
     if not Marked(name) then text = text .. MACRO_MARK end
-    clicker:SetAttribute("*macrotext1", text)
+    return text
+end
+
+local function NamesMacro(names)
+    local text, marked = MACRO_CLEAR, false
+    for _, name in ipairs(names) do
+        text = text .. MACRO_EXACT:format(name)
+        marked = marked or Marked(name)
+    end
+    if not marked then text = text .. MACRO_MARK end
+    return text
+end
+
+local function PlateMacro(seen)
+    local plate = seen.plate
+    if not plate then return nil end
+    local text = MACRO_UNIT:format(plate)
+    if not (UnitExists(plate) and Skulled(plate)) then text = text .. MACRO_MARK end
+    return text
+end
+
+local function Macro()
+    local seen = alert.seen
+    if alert.preview or not seen then return nil end
+    if seen.names then return NamesMacro(seen.names) end
+    if seen.hidden then return PlateMacro(seen) end
+    return NameMacro(seen)
 end
 
 local function PlaceClicker()
@@ -84,15 +117,15 @@ local function SyncClicker()
         return
     end
     clickerDue = nil
-    local name = alert:IsShown() and not holder.mover:IsShown() and TargetName()
-    local placed = name and PlaceClicker()
+    local macro = alert:IsShown() and not holder.mover:IsShown() and Macro()
+    local placed = macro and PlaceClicker()
     clickerRetry = placed and nil or clickerRetry
     if placed then
-        SetMacro(name)
+        clicker:SetAttribute("*macrotext1", macro)
         clicker:Show()
     else
         clicker:Hide()
-        if name and not clickerRetry then
+        if macro and not clickerRetry then
             clickerRetry = true
             C_Timer.After(0, SyncClicker)
             return
@@ -130,7 +163,9 @@ local function CardEnter(card)
     if not alert:IsShown() then return end
     local soft = T.accentSoft
     GameTooltip:SetOwner(card, "ANCHOR_TOP")
-    GameTooltip:SetText(alert.name:GetText() or TEXT_RARE, 1, 1, 1)
+    local name = alert.seen and alert.seen.name
+    if not R.IsSecret(name) then name = name or TEXT_RARE end
+    GameTooltip:SetText(name, 1, 1, 1)
     if card == clicker then GameTooltip:AddLine(TEXT_TARGET, soft.r, soft.g, soft.b) end
     GameTooltip:AddLine(TEXT_CLOSE, soft.r, soft.g, soft.b)
     GameTooltip:Show()
@@ -165,8 +200,8 @@ end
 
 local function ClickerPre(_, button)
     if button ~= "LeftButton" or InCombatLockdown() then return end
-    local name = TargetName()
-    if name then SetMacro(name) end
+    local macro = Macro()
+    if macro then clicker:SetAttribute("*macrotext1", macro) end
 end
 
 local function ClickerPost(_, button)
@@ -263,19 +298,57 @@ local function Retap(unit)
     Card.Paint(alert, seen)
 end
 
-local function RareGuid(unit)
+local function RareKind(unit)
     if not UnitExists(unit) then return nil end
     local kind = UnitClassification(unit)
     if R.IsSecret(kind) or not RARE[kind] then return nil end
-    local guid = UnitGUID(unit)
-    if R.IsSecret(guid) or not guid then return nil end
-    return guid, kind
+    return kind
 end
 
 local function Hostile(unit)
     local dead, hostile = UnitIsDead(unit), UnitCanAttack("player", unit)
     if R.IsSecret(dead) or R.IsSecret(hostile) then return false end
     return not dead and hostile
+end
+
+local function PlateUnit(unit)
+    if unit:find(PLATE_UNIT) then return unit end
+    local plate = C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit(unit)
+    local token = plate and plate.namePlateUnitToken
+    if type(token) == "string" and not R.IsSecret(token) and token:find(PLATE_UNIT) then return token end
+    return nil
+end
+
+local function DungeonRares()
+    local J = ns.Journal
+    local list = J and J.Current and J.Current()
+    if not list then return nil end
+    local rares = {}
+    for _, dungeon in ipairs(list) do
+        for _, wing in ipairs(dungeon.wings) do
+            for _, boss in ipairs(wing.bosses) do
+                if boss.rare and boss.name then rares[#rares + 1] = boss end
+            end
+        end
+    end
+    return rares[1] and rares or nil
+end
+
+local function CheckHidden(unit, kind)
+    local rares = DungeonRares()
+    local only = rares and not rares[2] and rares[1]
+    local key = only and only.npc or HIDDEN_KEY
+    if not Due(key) then return end
+    local level = UnitLevel(unit)
+    if R.IsSecret(level) then level = nil end
+    local seen = { name = UnitName(unit), hidden = true, level = level, unit = unit, plate = PlateUnit(unit),
+        elite = kind == "rareelite" }
+    if only then seen.name, seen.npc = only.name, only.npc end
+    if rares then
+        seen.names = {}
+        for i, boss in ipairs(rares) do seen.names[i] = boss.name end
+    end
+    Alert(key, seen)
 end
 
 local function Follow(unit, npc, guid)
@@ -285,10 +358,12 @@ local function Follow(unit, npc, guid)
 end
 
 local function Check(unit)
-    local guid, kind = RareGuid(unit)
-    if not guid then return end
+    local kind = RareKind(unit)
+    if not kind or not Hostile(unit) then return end
+    local guid = UnitGUID(unit)
+    if R.IsSecret(guid) then return CheckHidden(unit, kind) end
     local npc = R.NpcOf(guid)
-    if not npc or not Hostile(unit) then return end
+    if not npc then return end
     Follow(unit, npc, guid)
     local name, level = UnitName(unit), UnitLevel(unit)
     if R.IsSecret(name) then return end

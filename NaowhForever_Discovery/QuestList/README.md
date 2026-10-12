@@ -126,6 +126,15 @@ quest and creature pages. Do not edit them by hand: change the tool and run it a
   else to where it spawns most (its first spot).
 - Rare Alerts check a unit's classification first, before anything that makes a string, since
   every nameplate comes through. Any creature the game calls rare counts, in the data or not.
+- In a dungeon the game keeps a creature's GUID and name secret, but not its classification (seen
+  on Forever in 2026-10). So a rare there still alerts, named from the Dungeon Journal's rares of
+  that dungeon (`ns.Journal.Current`, read only when the Journal is loaded): with one, the card
+  has its name and its click targets it with `/targetexact`; with more, the card shows the game's
+  secret name as it is (a font string may show one) and the click tries `/targetexact` on each.
+  With no Journal, or a dungeon it lists no rare in, the click targets the rare's nameplate unit
+  instead, which a nameplate reused for another creature later would get wrong. Such a rare
+  alerts once in a while per dungeon rare, or once for all of them where its name is unknown.
+  The Journal's names are English, so `/targetexact` finds them only on an English client.
 - `AGAIN_AFTER` is 300: each rare alerts once in five minutes, not every time its nameplate comes
   back. A rare you killed alerts only with Alert for Killed Rares.
 - Completo's Lua never marks a rare: raid marks are Blizzard-only on Forever (`SetRaidTarget` has

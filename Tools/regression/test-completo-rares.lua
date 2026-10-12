@@ -13,6 +13,8 @@
 
 local Load = dofile("Tools/regression/load_files.lua")
 
+local SECRET = setmetatable({}, { __tostring = function() return "<secret>" end })
+
 local checks = 0
 local function Check(ok, label) assert(ok, label); checks = checks + 1 end
 
@@ -76,6 +78,7 @@ local function Fixture(settings, units)
             return t
         end }
     env.strsplit = Strsplit
+    env.issecretvalue = function(v) return v == SECRET end
     env.CreateColor = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end
     local now = 1000
     env.time = function() return now end
@@ -822,6 +825,45 @@ do
     ns.HideUnlockMode()
     Check(clicker:IsShown(), "and brings it back after")
     Check(env.restricted == 0, "nothing called SetRaidTarget")
+end
+
+-- In a dungeon the game keeps a rare's GUID and name secret: the Journal's rares of that dungeon name it
+do
+    local units = {}
+    local settings = { enabled = true, rareAlert = true, rareSound = true }
+    local ns, env = Fixture(settings, units)
+    local here
+    ns.Journal = { Current = function() return here end }
+    local function Dungeon(...)
+        local bosses = { { npc = 1, name = "A Boss" } }
+        for i, name in ipairs({ ... }) do bosses[#bosses + 1] = { npc = 100 + i, name = name, rare = true } end
+        return { { wings = { { bosses = bosses } } } }
+    end
+    here = Dungeon("Deviate Faerie Dragon")
+    units.nameplate2 = { guid = SECRET, name = SECRET, kind = "rareelite", level = SECRET }
+    env.Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+    Check(ns.alert:IsShown() and ns.alert.name.text == "Deviate Faerie Dragon",
+        "a secret rare in a dungeon with one rare alerts by that rare's name")
+    Check(ns.alert.model.unit == "nameplate2", "with the unit's own portrait")
+    Check(ns.clicker.attributes["*macrotext1"] == "/cleartarget\n/targetexact Deviate Faerie Dragon\n/tm 8",
+        "and its click targets it by name and skulls it")
+    ns.alert.OnClick(ns.alert, "RightButton")
+    env.Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+    Check(not ns.alert:IsShown(), "once in a while, like any rare")
+
+    local ns2, env2 = Fixture({ enabled = true, rareAlert = true }, units)
+    ns2.Journal = { Current = function() return Dungeon("Skul", "Stonespine") end }
+    env2.Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+    Check(ns2.alert:IsShown() and ns2.alert.name.text == SECRET,
+        "with two rares there, the card shows the game's own (secret) name")
+    Check(ns2.clicker.attributes["*macrotext1"] == "/cleartarget\n/targetexact Skul\n/targetexact Stonespine\n/tm 8",
+        "and its click targets whichever of them is there")
+
+    local ns3, env3 = Fixture({ enabled = true, rareAlert = true }, units)
+    env3.Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+    Check(ns3.alert:IsShown() and ns3.clicker.attributes["*macrotext1"] == "/cleartarget\n/target nameplate2\n/tm 8",
+        "with no Journal, it still alerts and its click targets the nameplate")
+    Check(env.restricted + env2.restricted + env3.restricted == 0, "nothing called SetRaidTarget")
 end
 
 -- Map Pins

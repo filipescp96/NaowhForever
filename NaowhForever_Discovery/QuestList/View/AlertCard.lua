@@ -136,6 +136,11 @@ end
 
 local function PaintName(f, seen)
     local room = W - PAD * NAME_PADS - ICON - PIN_ROOM
+    if R.IsSecret(seen.name) then
+        f.name:SetWidth(room)
+        f.name:SetText(seen.name)
+        return
+    end
     f.name:SetWidth(0)
     f.name:SetText(seen.name)
     f.name:SetWidth(math.min(f.name:GetStringWidth() + 1, room))
