@@ -5,10 +5,12 @@ local crafts = {}
 local account = {}
 local shoppingList, shoppingHave = {}, {}
 local selected, quantity
+local craftHook
 
 function wipe(t) for key in pairs(t) do t[key] = nil end return t end
 function UnitName() return "Tester" end
 function GetRealmName() return "Realm" end
+function hooksecurefunc(_, name, fn) if name == "CraftRecipe" then craftHook = fn end end
 function CreateFrame()
     local frame = {}
     function frame:SetScript(_, fn) self.onEvent = fn end
@@ -31,7 +33,10 @@ C_TradeSkillUI = {
     end,
     GetRecipeCooldown = function() return nil end,
     GetRecipeRequirements = function() return {} end,
-    CraftRecipe = function(id, count) crafts[#crafts + 1] = { id = id, count = count } end,
+    CraftRecipe = function(id, count)
+        crafts[#crafts + 1] = { id = id, count = count }
+        if craftHook then craftHook(id, count) end
+    end,
 }
 
 local makes = {
@@ -110,7 +115,6 @@ local event = assert(frames[1].onEvent)
 queue.Click()
 assert(crafts[1] and crafts[1].id == 200 and crafts[1].count == 2,
     "Craft Next did not request the prepared prerequisite batch")
-queue.OnCraftRequested(200, 2)
 event(frames[1], "UNIT_SPELLCAST_SUCCEEDED", "player", nil, 200)
 inventory[2000] = 2
 event(frames[1], "UNIT_SPELLCAST_SUCCEEDED", "player", nil, 200)
@@ -119,7 +123,6 @@ assert(ns.Professions.State.selectedID == 100 and quantity == "2", "main craft w
 queue.Click()
 assert(crafts[2] and crafts[2].id == 100 and crafts[2].count == 2,
     "Craft Next did not request the prepared main batch")
-queue.OnCraftRequested(100, 2)
 event(frames[1], "UNIT_SPELLCAST_SUCCEEDED", "player", nil, 100)
 event(frames[1], "UNIT_SPELLCAST_SUCCEEDED", "player", nil, 100)
 assert(next(queue.List().prerequisites) == nil and next(queue.List().crafts) == nil,
@@ -128,7 +131,7 @@ assert(next(queue.List().prerequisites) == nil and next(queue.List().crafts) == 
 shoppingList[100] = { name = "Ready", icon = 100, count = 1, need = { [3000] = 2 } }
 shoppingList[101] = { name = "Waiting", icon = 101, count = 1, need = { [6000] = 1 } }
 shoppingHave[3000] = 2
-assert(queue.ImportShopping() == true, "ready shopping craft was not promoted")
+assert(queue.OnPurchased() == true, "ready shopping craft was not promoted")
 assert(shoppingList[100] == nil and shoppingList[101] ~= nil, "promotion did not stay recipe-specific")
 assert(queue.List().crafts[100] ~= nil, "promoted craft was not placed in the queue")
 

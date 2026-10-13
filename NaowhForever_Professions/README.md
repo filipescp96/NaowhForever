@@ -107,6 +107,8 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   loaded and makes nothing is final.
 - An item whose name is not loaded is asked for, and ITEM_DATA_LOAD_RESULT for one asked for redraws
   the window once. Other item loads (the auction house loads hundreds) redraw nothing.
+- Recipe-list ownership markers scan container slots once per bag update, so equipped items are not
+  mistaken for saleable bag stock. Bank counts remain separate.
 - Shift-click links through ChatFrameUtil: the ChatEdit_ names are deprecated shims Forever does not
   load. The active chat window alone does not say you are typing: with some chat settings there
   always is one, so its focus is checked.
@@ -250,5 +252,5 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   (AuctionHouse.lua), `test-profession-merchant-events.lua` (Vendors.lua),
   `test-shopping-list-plan.lua` (ShoppingPlan.lua), `test-shopping-consumables.lua` (Consumables.lua),
   and the looks in `test-icon-look.lua` and `test-qol-bars-look.lua`.
-- Queue and marker additions: `test-profession-craft-queue.lua`,
-  `test-profession-recipe-markers.lua`, and `test-shopping-vendor-routing.lua`.
+- Queue and marker additions: `test-profession-bag-count.lua`, `test-profession-craft-queue.lua`,
+  `test-shopping-vendor-routing.lua`, and `ForeverAHCount/tests/ShoppingMarkerTest.lua`.

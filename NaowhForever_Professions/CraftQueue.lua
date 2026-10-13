@@ -142,16 +142,6 @@ local function Remove(recipeID, prerequisite)
     Redraw()
 end
 
-local function Clear()
-    local mine = Mine()
-    wipe(mine.prerequisites)
-    wipe(mine.crafts)
-    running, active = nil, nil
-    runID = runID + 1
-    events:UnregisterAllEvents()
-    Redraw()
-end
-
 local function Requirements(entry)
     local rows, missing, missingVendor, vendorCost = {}, false, false, 0
     for itemID, per in pairs(entry.need or EMPTY) do
@@ -437,19 +427,12 @@ Queue.List = Mine
 Queue.Add = Add
 Queue.Step = Step
 Queue.Remove = Remove
-Queue.Clear = Clear
 Queue.Requirements = Requirements
-Queue.CanCraft = CanCraft
 Queue.Ordered = Ordered
-Queue.Start = Start
 Queue.Click = Click
-Queue.Stop = Stop
 Queue.Running = function() return running and true or false end
 Queue.Active = function() return active end
-Queue.OnCraftRequested = OnCraftRequested
 Queue.MarkSkipped = MarkSkipped
 Queue.ResetSkipped = ResetSkipped
 Queue.OnPurchased = OnPurchased
-Queue.ImportShopping = ImportShopping
 Queue.AddMissing = AddMissing
-Queue.Redraw = Redraw

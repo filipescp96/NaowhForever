@@ -43,7 +43,7 @@ The Shopping List beside the profession window no longer truncates its Crafts, M
 
 When a selected recipe is already in the Shopping List, its header also shows a compact muted count and shopping-cart icon. The count updates immediately when the recipe is added, increased, decreased, removed, or cleared.
 
-Learned recipes receive small status markers in the left recipe list for shopping-list crafts, crafting-queue crafts, and crafted output already held in bags or bank. Hovering a marker shows its relevant quantity, including separate bag and bank counts.
+Learned recipes receive small status markers in the left recipe list for shopping-list crafts, crafting-queue crafts, and crafted output already held in bags or bank. Hovering a marker shows its relevant quantity, including separate bag and bank counts. Equipped items are deliberately excluded from the bag count because equipped crafted gear is normally soulbound and cannot be sold.
 
 ## Crafting Queue
 

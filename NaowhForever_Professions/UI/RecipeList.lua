@@ -89,10 +89,6 @@ local function FormatCraftCount(info)
     return plain .. TEXT_SEPARATOR .. orange
 end
 
-local function HasShoppingCraft(craft)
-    return type(craft) == "table" and (tonumber(craft.count) or 0) > 0
-end
-
 local function ShoppingCount(craft)
     return type(craft) == "table" and math.max(0, tonumber(craft.count) or 0) or 0
 end
@@ -110,14 +106,16 @@ local function QueuedCount(recipeID)
     return craftCount + prerequisiteCount
 end
 
-local function HasQueuedCraft(recipeID)
-    return QueuedCount(recipeID) > 0
-end
-
 local function OwnedCounts(recipeID)
     local output = R.OutputItem(recipeID)
     if not output then return 0, 0 end
-    return math.max(0, tonumber(R.ItemCount(output)) or 0), math.max(0, tonumber(R.BankCount(output)) or 0)
+    return math.max(0, tonumber(R.BagCount(output)) or 0), math.max(0, tonumber(R.BankCount(output)) or 0)
+end
+
+local function MarkerCounts(info)
+    local shopping = P.Shopping and P.Shopping.List and P.Shopping.List()[info.recipeID]
+    local bags, bank = OwnedCounts(info.recipeID)
+    return ShoppingCount(shopping), QueuedCount(info.recipeID), bags, bank
 end
 
 local function AlignRows(visible)
@@ -366,11 +364,10 @@ local function FillRecipe(row, info)
     row.text:SetText(info.name)
     SetColor(row.text, Style.DIFFICULTY_RGB[info.relativeDifficulty] or T.fg)
     row.count:SetText(W.linked and Orders.Count(info.recipeID) or FormatCraftCount(info))
-    local shopping = not W.linked and P.Shopping and P.Shopping.List and P.Shopping.List()[info.recipeID]
-    local bags, bank = OwnedCounts(info.recipeID)
+    local shopping, queued, bags, bank = List.MarkerCounts(info)
     row.bag.bags, row.bag.bank, row.bag.itemName = bags, bank, info.name
-    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), ShoppingCount(shopping),
-        not W.linked and QueuedCount(info.recipeID) or 0, not W.linked and (bags > 0 or bank > 0))
+    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), not W.linked and shopping or 0,
+        not W.linked and queued or 0, not W.linked and (bags > 0 or bank > 0))
     local profit, color = ListProfit(info.recipeID, R.OutputItem(info.recipeID))
     row.profit:SetText(profit)
     SetColor(row.profit, color)
@@ -457,8 +454,4 @@ function List.Build(frame, below)
 end
 
 List.RedrawAll = RedrawAll
-List.HasShoppingCraft = HasShoppingCraft
-List.HasQueuedCraft = HasQueuedCraft
-List.ShoppingCount = ShoppingCount
-List.QueuedCount = QueuedCount
-List.OwnedCounts = OwnedCounts
+List.MarkerCounts = MarkerCounts
