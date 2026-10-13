@@ -161,8 +161,9 @@ function Detail.UpdateShoppingCount(info)
     local list = P.Shopping and P.Shopping.List and P.Shopping.List()
     local craft = info and list and list[info.recipeID]
     local count = craft and tonumber(craft.count)
-    d.shoppingCount:SetShown(not W.linked and count ~= nil and count > 0)
-    if not (count and count > 0) then return end
+    local shown = not W.linked and type(count) == "number" and count > 0
+    d.shoppingCount:SetShown(shown)
+    if not shown then return end
 
     d.shoppingCount:SetText(TEXT_IN_SHOPPING_LIST:format(count))
     d.shoppingCount:ClearAllPoints()
