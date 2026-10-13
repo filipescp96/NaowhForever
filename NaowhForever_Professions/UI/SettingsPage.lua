@@ -11,6 +11,7 @@ local GATHER_LIFT = 8
 local GATHER_STAGE_H = 130
 local CRAFT_STAGE_H = 100
 local TIP_RANGE, ICON_RANGE, TEXT_RANGE = { 0, 50, 1 }, { 24, 80, 1 }, ns.Shared.Style.HUD_TEXT_RANGE
+local ROI_RANGE = { 0, 100, 1 }
 local ORDER_RECIPES, ORDER_ORDERS, ORDER_CRAFT_TIMER, ORDER_BUYING, ORDER_GATHER = 10, 20, 30, 40, 50
 local ORDER_DISENCHANT = 60
 local SAMPLE_ICON = "Interface\\Icons\\INV_Ingot_02"
@@ -179,6 +180,15 @@ page:Card({
           why = "Needs Crafting Profit",
           help = "Also shows each recipe's profit at the right of its row in the list, green or red. Recipes "
               .. "whose profit is not known show none." },
+        Group("ROI Colors"),
+        { key = "roiGreyBelow", label = "Grey Below", slider = ROI_RANGE, unit = "%", needs = ProfitOn,
+          why = "Needs Crafting Profit",
+          help = "ROI below this percentage is grey. ROI is profit divided by the materials' crafting cost. "
+              .. "Negative ROI is always red." },
+        { key = "roiGreenFrom", label = "Green From", slider = ROI_RANGE, unit = "%", needs = ProfitOn,
+          why = "Needs Crafting Profit",
+          help = "ROI at or above this percentage is green; the range between Grey Below and Green From is "
+              .. "yellow. If Green From is lower than Grey Below, Grey Below is used for both." },
         Group("Auction House"),
         { key = "ahShiftClick", label = "Shift-Click Searches AH", toggle = true, needs = On,
           why = TEXT_OFF,

@@ -8,6 +8,7 @@ local V = P.Vendors
 
 local AH_CUT = 0.05
 local FROM_VENDOR, FROM_AH = "vendor", "ah"
+local DEFAULT_ROI_GREY_BELOW, DEFAULT_ROI_GREEN_FROM = 10, 30
 
 local EMPTY = {}
 local profitCache = {}
@@ -72,20 +73,54 @@ local function ReagentCost(reagents)
     return cost, missing
 end
 
-local function RecipeProfit(recipeID, output, made)
+local function RecipeEconomics(recipeID, output, made)
     if not (output and ProfitShown()) then return end
-    local profit = profitCache[recipeID]
-    if profit == nil then
-        profit = false
+    local value = profitCache[recipeID]
+    if value == nil then
+        value = false
         local each = AuctionPrice(output)
         local ok, reagents = pcall(R.Reagents, recipeID)
         if each and ok and #reagents > 0 then
             local cost, missing = ReagentCost(reagents)
-            if missing == 0 then profit = AfterCut(each, made or 1) - cost end
+            if missing == 0 then
+                value = { profit = AfterCut(each, made or 1) - cost, cost = cost }
+            end
         end
-        profitCache[recipeID] = profit
+        profitCache[recipeID] = value
     end
-    return profit or nil
+    if value then return value.profit, value.cost end
+end
+
+local function RecipeProfit(recipeID, output, made)
+    local profit = RecipeEconomics(recipeID, output, made)
+    return profit
+end
+
+local function ROI(profit, cost)
+    if type(profit) ~= "number" or type(cost) ~= "number" or cost <= 0 then return end
+    return profit / cost * 100
+end
+
+local function ROIThresholds()
+    local grey = tonumber(S.Get("roiGreyBelow")) or DEFAULT_ROI_GREY_BELOW
+    local green = tonumber(S.Get("roiGreenFrom")) or DEFAULT_ROI_GREEN_FROM
+    grey = math.max(0, grey)
+    green = math.max(grey, green)
+    return grey, green
+end
+
+local function ROIBand(roi)
+    if type(roi) ~= "number" then return end
+    if roi < 0 then return "negative" end
+    local grey, green = ROIThresholds()
+    if roi < grey then return "muted" end
+    if roi < green then return "yellow" end
+    return "green"
+end
+
+local function ROIText(roi)
+    if type(roi) ~= "number" then return end
+    return ("(%.0f%% ROI)"):format(roi)
 end
 
 local function ClearCache()
@@ -97,6 +132,11 @@ P.Prices = {
     BuyPrice = BuyPrice,
     ProfitShown = ProfitShown,
     CraftValue = CraftValue,
+    RecipeEconomics = RecipeEconomics,
     RecipeProfit = RecipeProfit,
+    ROI = ROI,
+    ROIThresholds = ROIThresholds,
+    ROIBand = ROIBand,
+    ROIText = ROIText,
     ClearCache = ClearCache,
 }

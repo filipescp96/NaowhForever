@@ -29,6 +29,12 @@ local TIP_HELP = ns.L("Vendor prices are the ones last seen at a merchant; the r
     .. "lowest buyouts at your last auction house scan. Uncheck a reagent you already have "
     .. "to leave it out of the cost.")
 local TEXT_ITEM = ns.L("Item ")
+local ROI_COLORS = {
+    negative = Style.RED_RGB,
+    muted = T.muted,
+    yellow = Style.GOLD_RGB,
+    green = Style.PROFIT_RGB,
+}
 
 local Lines = {}
 P.Lines = Lines
@@ -121,7 +127,7 @@ local function OnProfitEnter(self)
 end
 
 function Lines.BuildProfit(parent)
-    local block = Lines.Build(parent, { "buy", "sell", "profit" })
+    local block = Lines.Build(parent, { "buy", "sell", "profit", "roi" })
     block.calc = { parts = {} }
     block:SetScript("OnEnter", OnProfitEnter)
     return block
@@ -135,7 +141,7 @@ local function SellLines(v, output)
     if v.missing > 0 then return sell, sellNote, Lines.None(), TEXT_NO_PRICES end
     local p = v.sale - v.cost
     local profit = Text.Hex(p >= 0 and Style.PROFIT_RGB or Style.RED_RGB) .. Text.Money(p, true) .. "|r"
-    return sell, sellNote, profit, TEXT_AFTER_CUT
+    return sell, sellNote, profit, TEXT_AFTER_CUT, p
 end
 
 function Lines.RenderProfit(block, recipeID, output, made)
@@ -150,9 +156,13 @@ function Lines.RenderProfit(block, recipeID, output, made)
         return block:Hide()
     end
     Lines.Set(block.buy, TEXT_BUY, Text.Money(v.cost), v.missing > 0 and TEXT_UNPRICED:format(v.missing) or nil)
-    local sell, sellNote, profit, profitNote = SellLines(v, output)
+    local sell, sellNote, profit, profitNote, rawProfit = SellLines(v, output)
     Lines.Set(block.sell, TEXT_SELL, sell, sellNote)
     Lines.Set(block.profit, TEXT_PROFIT, profit, profitNote)
+    local roi = Prices.ROI(rawProfit, v.cost)
+    local roiColor = roi and ROI_COLORS[Prices.ROIBand(roi)]
+    local roiText = roiColor and (Text.Hex(roiColor) .. Prices.ROIText(roi) .. "|r") or nil
+    Lines.Set(block.roi, nil, roiText)
     Lines.Fit(block.lines)
     block:Show()
 end

@@ -42,6 +42,12 @@ local TEXT_REQUIRED = ns.L("Required skill: %d  (%s)")
 
 local win
 local rows = {}
+local ROI_COLORS = {
+    negative = Style.RED_RGB,
+    muted = T.muted,
+    yellow = Style.GOLD_RGB,
+    green = Style.PROFIT_RGB,
+}
 
 local List = {}
 P.List = List
@@ -51,9 +57,16 @@ local function VisibleRows()
 end
 
 local function ListProfit(recipeID, output, made)
-    local profit = not W.linked and S.Get("craftProfitList") and Prices.RecipeProfit(recipeID, output, made)
-    if not profit then return "", T.fg end
-    return Text.Money(profit, true), profit >= 0 and Style.PROFIT_RGB or Style.RED_RGB
+    if W.linked or not S.Get("craftProfitList") then return "", T.fg end
+    local profit, cost = Prices.RecipeEconomics(recipeID, output, made)
+    if profit == nil then return "", T.fg end
+    local text = Text.Money(profit, true)
+    local roi = Prices.ROI(profit, cost)
+    if roi and roi >= 0 then
+        local color = ROI_COLORS[Prices.ROIBand(roi)] or T.muted
+        text = text .. " " .. Text.Hex(color) .. Prices.ROIText(roi) .. "|r"
+    end
+    return text, profit >= 0 and Style.PROFIT_RGB or Style.RED_RGB
 end
 
 local function FormatCraftCount(info)
@@ -65,6 +78,10 @@ local function FormatCraftCount(info)
     local orange = Text.Hex(Style.VENDOR_RGB) .. withVendor .. "|r"
     if have == 0 then return orange end
     return plain .. TEXT_SEPARATOR .. orange
+end
+
+local function HasShoppingCraft(craft)
+    return type(craft) == "table" and (tonumber(craft.count) or 0) > 0
 end
 
 local function AlignRows(visible)
@@ -259,7 +276,7 @@ local function FillRecipe(row, info)
     SetColor(row.text, Style.DIFFICULTY_RGB[info.relativeDifficulty] or T.fg)
     row.count:SetText(W.linked and Orders.Count(info.recipeID) or FormatCraftCount(info))
     local shopping = not W.linked and P.Shopping and P.Shopping.List and P.Shopping.List()[info.recipeID]
-    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), shopping ~= nil and shopping.count > 0)
+    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), HasShoppingCraft(shopping))
     local profit, color = ListProfit(info.recipeID, R.OutputItem(info.recipeID))
     row.profit:SetText(profit)
     SetColor(row.profit, color)
@@ -346,3 +363,4 @@ function List.Build(frame, below)
 end
 
 List.RedrawAll = RedrawAll
+List.HasShoppingCraft = HasShoppingCraft

@@ -44,3 +44,7 @@ The Shopping List beside the profession window no longer truncates its Crafts, M
 When a selected recipe is already in the Shopping List, its header also shows a small muted `(X in Shopping List)` label. The count updates immediately when the recipe is added, increased, decreased, removed, or cleared.
 
 Learned recipes that are already on the Shopping List also receive a small blue shopping-cart marker in the left recipe list, so they can be identified without selecting each recipe.
+
+## Return on investment
+
+Known recipe profits include ROI, calculated as profit divided by the materials' crafting cost. The recipe list shows `(X% ROI)` after non-negative profits, while the selected recipe shows ROI on its own line, including negative ROI in red. ROI below 10% is grey by default, 10–29% is yellow, and 30% or more is green. The **ROI Color Thresholds...** entry in the Filter menu opens the editable thresholds on the Professions settings page.
