@@ -62,7 +62,7 @@ local function ListProfit(recipeID, output, made)
     if profit == nil then return "", T.fg end
     local text = Text.Money(profit, true)
     local roi = Prices.ROI(profit, cost)
-    if roi and roi >= 0 then
+    if S.Get("craftROI") and roi and roi >= 0 then
         local color = ROI_COLORS[Prices.ROIBand(roi)] or T.muted
         text = text .. " " .. Text.Hex(color) .. Prices.ROIText(roi) .. "|r"
     end

@@ -159,7 +159,7 @@ function Lines.RenderProfit(block, recipeID, output, made)
     local sell, sellNote, profit, profitNote, rawProfit = SellLines(v, output)
     Lines.Set(block.sell, TEXT_SELL, sell, sellNote)
     Lines.Set(block.profit, TEXT_PROFIT, profit, profitNote)
-    local roi = Prices.ROI(rawProfit, v.cost)
+    local roi = S.Get("craftROI") and Prices.ROI(rawProfit, v.cost)
     local roiColor = roi and ROI_COLORS[Prices.ROIBand(roi)]
     local roiText = roiColor and (Text.Hex(roiColor) .. Prices.ROIText(roi) .. "|r") or nil
     Lines.Set(block.roi, nil, roiText)

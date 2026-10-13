@@ -181,6 +181,10 @@ page:Card({
           help = "Also shows each recipe's profit at the right of its row in the list, green or red. Recipes "
               .. "whose profit is not known show none." },
         Group("ROI Colors"),
+        { key = "craftROI", label = "Show ROI", toggle = true, needs = ProfitOn,
+          why = "Needs Crafting Profit",
+          help = "Shows return on investment beside recipe-list profits and below the selected recipe's profit. "
+              .. "ROI is profit divided by the materials' crafting cost." },
         { key = "roiGreyBelow", label = "Grey Below", slider = ROI_RANGE, unit = "%", needs = ProfitOn,
           why = "Needs Crafting Profit",
           help = "ROI below this percentage is grey. ROI is profit divided by the materials' crafting cost. "

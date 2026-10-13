@@ -47,4 +47,4 @@ Learned recipes that are already on the Shopping List also receive a small blue 
 
 ## Return on investment
 
-Known recipe profits include ROI, calculated as profit divided by the materials' crafting cost. The recipe list shows `(X% ROI)` after non-negative profits, while the selected recipe shows ROI on its own line, including negative ROI in red. ROI below 10% is grey by default, 10–29% is yellow, and 30% or more is green. The **ROI Color Thresholds...** entry in the Filter menu opens the editable thresholds on the Professions settings page.
+Known recipe profits can include ROI, calculated as profit divided by the materials' crafting cost. The recipe list shows `(X% ROI)` after non-negative profits, while the selected recipe shows ROI on its own line, including negative ROI in red. ROI below 10% is grey by default, 10–29% is yellow, and 30% or more is green. **Show ROI** in the Filter menu or Professions settings controls both displays, and is enabled by default. The **ROI Color Thresholds...** entry opens the editable thresholds on the Professions settings page.
