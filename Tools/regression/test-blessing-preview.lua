@@ -57,11 +57,12 @@ function methods:CreateFontString() return New("FontString", self) end
 local settings = {}
 local defaults = { blessings = true, blessBarSize = 30, blessSpacing = 6, blessGroupSpacing = 6,
     blessTimerSize = 14, blessShowLabels = true, blessTimers = true, blessShowAura = true, blessShowFury = false,
-    blessLabelStyle = "name", blessLayout = "horizontal" }
+    blessLabelStyle = "name", blessGrow = "right" }
 local sets = 0
 local S = {}
 function S.Get(k) local v = settings[k]; if v == nil then return defaults[k] end return v end
 function S.Set(k, v) settings[k] = v; sets = sets + 1 end
+function S.DB() return settings end
 
 local THEME = { fg = { r = 1, g = 1, b = 1 }, muted = { r = 0.6, g = 0.6, b = 0.6 },
     accent = { r = 0, g = 0.57, b = 0.93 }, accentSoft = { r = 0.3, g = 0.71, b = 0.96 }, bg = { r = 0, g = 0, b = 0 } }
@@ -83,6 +84,7 @@ local ns = { L = dofile("Tools/regression/locale_stub.lua").L, Upper = string.up
         Style = setmetatable({ PLUS = "plus", CROSS = "cross", OPACITY_MIN = 20 },
             { __index = dofile("Tools/regression/shared_style.lua") }),
         Parts = { HudFont = function(fs, font, size, outline) fs.font, fs.size, fs.outline = font, size, outline end },
+        Anchor = { Rows = function(spec) return { { anchor = spec } } end },
         Settings = {
             Group = function(name) return { group = name } end,
             Look = function(prefix, opts) return { { look = prefix, opts = opts } } end,
@@ -233,10 +235,13 @@ grip.scripts.OnMouseUp(grip, "LeftButton")
 check("letting go stops the drag", grip.scripts.OnUpdate == nil and not grip.dragging)
 settings.blessGroupSpacing = nil
 
--- Direction: Vertical stacks the bar top to bottom, the class labels beside the buttons and
--- the gap after the aura dragged up or down; Horizontal puts it all back.
+-- Grow: Down stacks the bar top to bottom, the class labels beside the buttons and the gap after
+-- the aura dragged up or down; a bar saved as Vertical before Grow comes back growing down; Left
+-- and Up grow from the right and the bottom; Right puts it all back.
 settings.blessLayout = "vertical"
 studio.paint(preview, "group")
+check("a bar saved Vertical grows down, and the old setting goes", settings.blessGrow == "down"
+    and settings.blessLayout == nil)
 local first, second = preview.cells[1], preview.cells[2]
 check("vertical: the class buttons stack from the top", first.point == "TOP" and second.point == "TOP"
     and first.x == 0 and second.y == first.y - 36)
@@ -252,8 +257,23 @@ grip.scripts.OnUpdate(grip)
 check("vertical: dragging down widens the gap", S.Get("blessGroupSpacing") == 16)
 grip.scripts.OnMouseUp(grip, "LeftButton")
 cursorY = 0
-check("the card's summary says vertical", cards.bar.summary(S):find(", vertical", 1, true))
-settings.blessLayout, settings.blessGroupSpacing = nil, nil
+check("the card's summary says which way it grows", cards.bar.summary(S):find(", grows down", 1, true))
+settings.blessGrow, settings.blessGroupSpacing = "left", nil
+studio.paint(preview, "group")
+check("left: the buttons line up from the right", first.point == "RIGHT" and second.x == first.x - 36
+    and preview.plus.point == "RIGHT" and first.label.point == "TOP")
+cursorX = 100
+grip.scripts.OnMouseDown(grip, "LeftButton")
+cursorX = 90
+grip.scripts.OnUpdate(grip)
+check("left: dragging left widens the gap", S.Get("blessGroupSpacing") == 16)
+grip.scripts.OnMouseUp(grip, "LeftButton")
+cursorX = 0
+settings.blessGrow, settings.blessGroupSpacing = "up", nil
+studio.paint(preview, "group")
+check("up: the buttons stack from the bottom", first.point == "BOTTOM" and second.y == first.y + 36
+    and first.label.point == "LEFT")
+settings.blessGrow = nil
 studio.paint(preview, "group")
 check("horizontal again: a row with labels under the buttons", first.point == "LEFT" and first.label.point == "TOP"
     and preview.bar.h == 30 and grip.point == "LEFT")
@@ -334,19 +354,24 @@ settings.blessBarSize, settings.blessShowLabels, settings.blessLabelStyle = nil,
 studio.paint(preview, "group")
 check("back on Name the name returns and the icon hides", warriorCell.label.shown and not classIcon.shown
     and warriorCell.label.text == "Warrior")
-settings.blessLabelStyle, settings.blessLayout = "icon", "vertical"
+settings.blessLabelStyle, settings.blessGrow = "icon", "down"
 studio.paint(preview, "group")
 check("a column's icons sit beside their buttons, not on the one below", classIcon.shown
     and classIcon.point == "LEFT" and classIcon.anchor == warriorCell)
-settings.blessLabelStyle, settings.blessLayout = nil, nil
+settings.blessLabelStyle, settings.blessGrow = nil, nil
 studio.paint(preview, "group")
 check("and back under them in a row", not classIcon.shown and warriorCell.label.point == "TOP")
-settings.blessBarSize, settings.blessSpacing, settings.blessLayout = 16, 0, "vertical"
+settings.blessBarSize, settings.blessSpacing, settings.blessGrow = 16, 0, "down"
 studio.paint(preview, "group")
 check("a column's names sit beside it with nothing to run into: never squeezed",
     warriorCell.label.text == "Warrior" and warriorCell.label.size == 10)
-settings.blessBarSize, settings.blessSpacing, settings.blessLayout = nil, nil, nil
+settings.blessBarSize, settings.blessSpacing, settings.blessGrow = nil, nil, nil
 studio.paint(preview, "group")
+
+-- The Anchor card: the shared anchor rows on the bar's own settings, and a way back above Buff Reminders.
+local anchorRows = cards.anchor and cards.anchor.rows
+check("the Anchor card has the shared rows and Reset Position", anchorRows and anchorRows[1].anchor.prefix == "bless"
+    and anchorRows[2].label == "Reset Position" and anchorRows[2].button == B.ResetPosition)
 
 -- Off: nothing in the preview edits.
 settings.blessings = false

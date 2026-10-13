@@ -27,7 +27,7 @@ local ICON_DROP, ICON_SIDE = 2, 3
 local SIZE_SLIDER, SPACING_SLIDER, GROUP_SLIDER = { 20, 70, 1 }, { 0, 30, 1 }, { 0, 40, 1 }
 local FONT_SLIDER = St.HUD_TEXT_RANGE
 local OPACITY_SLIDER, TO_FRACTION = St.OPACITY_RANGE, St.PERCENT_SCALE
-local ORDER_BAR, ORDER_WINDOW = 10, 20
+local ORDER_BAR, ORDER_ANCHOR, ORDER_WINDOW = 10, 15, 20
 local AURA_LABEL, FURY_LABEL, GROUP_LABEL = ns.L("Aura Button"), ns.L("Righteous Fury Button"), "Aura / Class Gap"
 local HINT = ns.L("Right-click a class for its blessing. Wheel: size, Shift-wheel: spacing. x hides a button.")
 local HINT_OFF = ns.L("Turn on Blessings to edit the bar here.")
@@ -36,7 +36,11 @@ local ADD_AURA, ADD_FURY, ADD_BOTH = ns.L("Brings back the Aura button."), ns.L(
     ns.L("Choose which button to bring back.")
 local GAP_TIP = ns.L("Drag left or right to change the gap between your aura and the class buttons.")
 local GAP_TIP_VERTICAL = ns.L("Drag up or down to change the gap between your aura and the class buttons.")
-local LAYOUT = { { horizontal = "Horizontal", vertical = "Vertical" }, { "horizontal", "vertical" } }
+local GROW = { { right = "Right", left = "Left", up = "Up", down = "Down" }, { "right", "left", "up", "down" } }
+local GROW_SUMMARY = { left = ns.L(", grows left"), up = ns.L(", grows up"), down = ns.L(", grows down") }
+local ANCHOR = { store = S, prefix = "bless", name = "Blessing Bar", frame = B.BarFrame,
+    on = function() return S.Get("blessings") == true and B.IsPaladin() end }
+local NO_BAR = ns.L("Turn on Blessings on a paladin")
 local AURA_HERE = ns.L("Here: click to choose your aura. Its x hides the button.")
 local SELF_HERE = ns.L("Here: its x hides the button.")
 local CLASS_TIP = ns.L("On the bar, left-click blesses the next %s who needs it, missing first, skipping anyone "
@@ -67,6 +71,7 @@ local function On() return S.Get("blessings") == true end
 local function OpenWindow() ns.OpenBlessingsWindow() end
 local function LabelsOn() return On() and S.Get("blessShowLabels") == true end
 local function NotPaladin() return not B.IsPaladin() end
+local function HasBar() return ANCHOR.on() and B.BarFrame() ~= nil end
 
 local function BlessingChoices(class)
     local values, order = { [NONE] = TEXT_NONE }, {}
@@ -175,7 +180,8 @@ end
 
 local function GripUpdate(grip)
     local cursorX, cursorY = GetCursorPosition()
-    local moved = grip.vertical and (grip.fromY - cursorY) or (cursorX - grip.fromX)
+    local step = grip.step
+    local moved = step[1] * (cursorX - grip.fromX) + step[2] * (cursorY - grip.fromY)
     local value = grip.from + math.floor(moved / grip.scale + ROUND)
     value = math.min(GROUP_SLIDER[2], math.max(GROUP_SLIDER[1], value))
     if value ~= S.Get("blessGroupSpacing") then S.Set("blessGroupSpacing", value) end
@@ -193,7 +199,7 @@ local function GripDown(grip, mouse)
     if mouse ~= "LeftButton" or not grip.preview.editable then return end
     grip.fromX, grip.fromY = GetCursorPosition()
     grip.scale, grip.from = grip:GetEffectiveScale(), S.Get("blessGroupSpacing")
-    grip.vertical = Look.vertical
+    grip.step = Look.STEP[Look.grow]
     grip.dragging = true
     grip.preview.remove:Hide()
     grip.line:Show()
@@ -368,15 +374,14 @@ local function PlaceGrip(grip, shown, x, bar)
     local line = grip.line
     grip:ClearAllPoints()
     line:ClearAllPoints()
+    Look.Along(grip, bar, at)
     if Look.vertical then
         grip:SetSize(Look.size, width)
-        grip:SetPoint("TOP", bar, "TOP", 0, 0 - at)
         line:SetPoint("LEFT")
         line:SetPoint("RIGHT")
         line:SetHeight(GRIP_LINE)
     else
         grip:SetSize(width, Look.size)
-        grip:SetPoint("LEFT", bar, "LEFT", at, 0)
         line:SetPoint("TOP")
         line:SetPoint("BOTTOM")
         line:SetWidth(GRIP_LINE)
@@ -396,7 +401,7 @@ local function PaintPreview(preview, state)
     if adding then
         plus:SetSize(Look.size, Look.size)
         plus:ClearAllPoints()
-        plus:SetPoint(Look.vertical and "TOP" or "LEFT", bar, Look.vertical and "TOP" or "LEFT", 0, 0)
+        Look.Along(plus, bar, 0)
         x = Look.size + Look.gap
         ns.Tooltip(plus, ADD_TITLE, showAura and ADD_FURY or showFury and ADD_AURA or ADD_BOTH)
     end
@@ -428,7 +433,7 @@ end
 
 local function BarSummary(store)
     return (ns.L("%d px buttons%s%s%s")):format(store.Get("blessBarSize"),
-        store.Get("blessLayout") == "vertical" and ns.L(", vertical") or "",
+        GROW_SUMMARY[store.Get("blessGrow")] or "",
         store.Get("blessShowAura") and ns.L(", aura") or "", store.Get("blessTimers") and ns.L(", minutes left") or "")
 end
 
@@ -445,7 +450,8 @@ page:Card({
     id = "bar", name = "Blessing Bar", order = ORDER_BAR,
     help = "For paladins, a button per class in your group. Left-click blesses the next member of that class "
         .. "who needs it, missing first, skipping anyone dead or out of range. Right-click a class to choose "
-        .. "its blessing or open its player list. Move it in the HUD Editor. The preview edits it: right-click a "
+        .. "its blessing or open its player list. It sits above Buff Reminders and moves with them; move it in the "
+        .. "HUD Editor or anchor it below. The preview edits it: right-click a "
         .. "class for its blessing, click the aura to choose it, wheel for size and Shift-wheel for spacing, drag "
         .. "the gap after the aura, x hides a button and + brings it back.",
     summary = BarSummary,
@@ -457,7 +463,7 @@ page:Card({
         { key = "blessShowFury", label = FURY_LABEL, toggle = true, needs = On, why = BLESSINGS_OFF,
           help = "Casts Righteous Fury on yourself. A red ! means it is not up." },
         { key = "blessShowLabels", label = "Class Labels", toggle = true, needs = On, why = BLESSINGS_OFF,
-          help = "Each class's name or icon, under its button or beside it when the bar is vertical." },
+          help = "Each class's name or icon, under its button or beside it when the bar grows up or down." },
         { key = "blessLabelStyle", label = "Class Label Style", choice = LABEL_STYLES, needs = LabelsOn,
           why = LABELS_OFF, help = "The class's name, or its class icon, which fits however small the buttons are." },
         { key = "blessTimers", label = "Minutes Left", toggle = true, needs = On, why = BLESSINGS_OFF,
@@ -470,9 +476,9 @@ page:Card({
           help = "The gap between two buttons." },
         { key = "blessGroupSpacing", label = GROUP_LABEL, slider = GROUP_SLIDER, needs = On,
           why = BLESSINGS_OFF, help = "The extra gap between your aura and Righteous Fury and the class buttons." },
-        { key = "blessLayout", label = "Direction", choice = LAYOUT, needs = On, why = BLESSINGS_OFF,
-          help = "Horizontal: a row, left to right. Vertical: a column, top to bottom, with the class labels "
-              .. "beside the buttons." },
+        { key = "blessGrow", label = "Grow", choice = GROW, needs = On, why = BLESSINGS_OFF,
+          help = "Which way new buttons are added from the first one: Right and Left make a row, Up and Down a "
+              .. "column with the class labels beside it." },
         Settings.Look("bless", { text = true, size = FONT_SLIDER, keys = { FontSize = "blessTimerSize" }, needs = On,
             why = BLESSINGS_OFF }),
         Group("Colors"),
@@ -486,6 +492,20 @@ page:Card({
           help = "The same with a Greater Blessing, for a class that shares one blessing, while you carry "
               .. "Symbols of Kings." },
     },
+})
+
+local function AnchorRows()
+    local rows = ns.Shared.Anchor.Rows(ANCHOR)
+    rows[#rows + 1] = { label = "Reset Position", button = B.ResetPosition, buttonText = "Reset", needs = HasBar,
+        why = NO_BAR, help = "Puts the bar back above Buff Reminders, anchored to them." }
+    return rows
+end
+
+page:Card({
+    id = "anchor", name = "Anchor", order = ORDER_ANCHOR,
+    help = "Where the bar sits: above Buff Reminders at first, then on another element, a unit frame or where you "
+        .. "drag it.",
+    rows = AnchorRows(),
 })
 
 page:Card({

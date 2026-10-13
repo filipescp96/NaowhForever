@@ -23,12 +23,15 @@ local SECONDS = 60
 local ROUND = B.ROUND
 local MINUTES = "m"
 local MARK = "!"
+local DEFAULT_GROW, OLD_VERTICAL, GROW_VERTICAL = "right", "vertical", "down"
+local EDGE = { right = "LEFT", left = "RIGHT", up = "BOTTOM", down = "TOP" }
+local STEP = { right = { 1, 0 }, left = { -1, 0 }, up = { 0, 1 }, down = { 0, -1 } }
 
 local tints = { [RED] = RED, [YELLOW] = YELLOW, [BLUE] = BLUE }
 local deepAccent
 
 local Look = { RED = RED, YELLOW = YELLOW, BLUE = BLUE, HIGHLIGHT = HIGHLIGHT, ICON_BORDER = ICON_BORDER,
-    ICON_CROP = ICON_CROP, CLASS_ICON_PATH = CLASS_ICON_PATH }
+    ICON_CROP = ICON_CROP, CLASS_ICON_PATH = CLASS_ICON_PATH, EDGE = EDGE, STEP = STEP }
 B.Look = Look
 
 local function Shorten(text, n)
@@ -91,6 +94,17 @@ local function PlaceLabel(frame, size)
     end
 end
 
+local function Grow()
+    local db = S.DB()
+    if db.blessLayout ~= nil then
+        if db.blessGrow == nil and db.blessLayout == OLD_VERTICAL then db.blessGrow = GROW_VERTICAL end
+        db.blessLayout = nil
+    end
+    local grow = S.Get("blessGrow")
+    if EDGE[grow] then return grow end
+    return DEFAULT_GROW
+end
+
 function Look.Icon(frame)
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     ns.PixelInset(frame.icon, 1)
@@ -115,7 +129,8 @@ function Look.Read()
     Look.timerSize, Look.labels = S.Get("blessTimerSize"), S.Get("blessShowLabels")
     Look.icons = S.Get("blessLabelStyle") == "icon"
     Look.font, Look.outline = S.Get("blessFont"), S.Get("blessOutline")
-    Look.vertical = S.Get("blessLayout") == "vertical"
+    Look.grow = Grow()
+    Look.vertical = STEP[Look.grow][1] == 0
     if S.Get("blessThemeColors") then
         deepAccent = deepAccent or { r = T.accent.r * DEEP_SHADE, g = T.accent.g * DEEP_SHADE, b = T.accent.b * DEEP_SHADE }
         tints[RED], tints[YELLOW], tints[BLUE] = T.accent, T.accentSoft, deepAccent
@@ -138,13 +153,14 @@ function Look.Place(frame, row, x)
     frame.mark:SetTextColor(missing.r, missing.g, missing.b)
     if frame.label then PlaceLabel(frame, size) end
     frame:ClearAllPoints()
-    if Look.vertical then
-        frame:SetPoint("TOP", row, "TOP", 0, 0 - x)
-    else
-        frame:SetPoint("LEFT", row, "LEFT", x, 0)
-    end
+    Look.Along(frame, row, x)
     frame:Show()
     return x + size + Look.gap
+end
+
+function Look.Along(region, row, at)
+    local point, step = EDGE[Look.grow], STEP[Look.grow]
+    region:SetPoint(point, row, point, step[1] * at, step[2] * at)
 end
 
 function Look.IconSize()
