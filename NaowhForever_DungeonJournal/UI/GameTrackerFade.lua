@@ -7,10 +7,13 @@ local Tracker = J.QuestTracker
 
 local FADED, SHOWN = 0, 1
 
-local gameFaded, gameHooked = false, false
+local gameFaded, gameHooked, keepingFaded = false, false, false
 
-local function KeepFaded(frame)
-    if gameFaded then frame:SetAlpha(FADED) end
+local function KeepFaded(frame, alpha)
+    if not gameFaded or keepingFaded or alpha == FADED then return end
+    keepingFaded = true
+    frame:SetAlpha(FADED)
+    keepingFaded = false
 end
 
 local function ShouldFade()
@@ -24,6 +27,7 @@ function Tracker.SyncGameTracker()
         if not gameHooked then
             gameHooked = true
             hooksecurefunc(frame, "Show", KeepFaded)
+            hooksecurefunc(frame, "SetAlpha", KeepFaded)
         end
         gameFaded = true
         frame:SetAlpha(FADED)

@@ -1541,6 +1541,7 @@ do
     local game = state.gameTracker
     check("the game's quest tracker is faded", game.shown and game.alpha == 0)
     game:SetAlpha(1)
+    check("and stays faded when its alpha changes", game.shown and game.alpha == 0)
     game:Show()
     check("and stays faded when the game shows it again", game.shown and game.alpha == 0)
     state.combat = true
