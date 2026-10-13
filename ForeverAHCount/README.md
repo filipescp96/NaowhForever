@@ -41,9 +41,15 @@ Naowh Forever's **Favorite Patterns** Auction House panel can scan the complete 
 
 The Shopping List beside the profession window no longer truncates its Crafts, Materials, or Make First sections. All entries share a clean, scrollbar-free area; hover the list and use the mouse wheel. The title, estimated total, and Clear button remain fixed.
 
-When a selected recipe is already in the Shopping List, its header also shows a small muted `(X in Shopping List)` label. The count updates immediately when the recipe is added, increased, decreased, removed, or cleared.
+When a selected recipe is already in the Shopping List, its header also shows a compact muted count and shopping-cart icon. The count updates immediately when the recipe is added, increased, decreased, removed, or cleared.
 
-Learned recipes that are already on the Shopping List also receive a small blue shopping-cart marker in the left recipe list, so they can be identified without selecting each recipe.
+Learned recipes receive small status markers in the left recipe list for shopping-list crafts, crafting-queue crafts, and crafted output already held in bags or bank. Hovering a marker shows its relevant quantity, including separate bag and bank counts.
+
+## Crafting Queue
+
+The profession window's right column is split between the Shopping List and a persistent per-character Crafting Queue. Purchased crafts move into the queue when their auction-house materials are ready. Cheaper crafted prerequisites are listed separately and prepared first; missing vendor materials remain clearly marked with a detailed tooltip and can be added to the Shopping List when appropriate.
+
+Queue rows support quantity changes and removal. **Start Queue** prepares the first available batch, then every **Craft Next** batch requires a fresh player click through Naowh's normal crafting path. Completed batches prepare the next prerequisite or regular craft without automating the protected crafting action.
 
 ## Return on investment
 

@@ -268,6 +268,7 @@ end
 
 local function OnRemove(row)
     if row.item and not run then
+        if P.CraftQueue and P.CraftQueue.MarkSkipped then P.CraftQueue.MarkSkipped(row.item, row.qty) end
         Shopping.Drop(row.item, row.qty)
         Render()
     end
@@ -540,10 +541,12 @@ end
 local function OnPurchased(e)
     run.bought = run.bought + 1
     Shopping.Drop(e.item, e.buy)
-    if #(Shopping.Materials()) == 0 then
+    local imported = P.CraftQueue and P.CraftQueue.OnPurchased and P.CraftQueue.OnPurchased(e.item, e.buy)
+    if not imported and #(Shopping.Materials()) == 0 then
         wipe(Shopping.List())
         wipe(Shopping.Manual())
         Shopping.Trim()
+        if P.CraftQueue and P.CraftQueue.ResetSkipped then P.CraftQueue.ResetSkipped() end
     end
     NextBuy()
 end

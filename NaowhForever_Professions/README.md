@@ -38,6 +38,7 @@ NaowhForever_Professions/
   BagRoom.lua          how many crafts the bags have room for (ns.CraftBagRoom)
   ShoppingPlan.lua     the shopping list's store (crafts and other items) and make-or-buy plan (P.Shopping)
   Consumables.lua      the consumables that suit you, by class, mana and level, the best marked (P.Consumables)
+  CraftQueue.lua       saved crafts, prerequisites, material checks and click-driven execution (P.CraftQueue)
   Patterns.lua         favourites at a trainer, and their patterns to buy (P.Patterns, ns.TrainerServiceInfo)
   Disenchant.lua       the bag items Disenchant can take, the ones you keep, the next one (P.Disenchant)
   View/
@@ -194,6 +195,11 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   shared cooldown can read 0 on the spell). What was bought counts at every level, and a craft taken
   off takes its purchases along. Every craft fires TRADE_SKILL_LIST_UPDATE, so the recipes known are
   recorded again only when they changed, 0.5s after the list settles.
+- The crafting queue is saved per character. Purchased shopping-list crafts move into it only when
+  their own auction-house materials are ready; vendor materials stay visible as missing unless the
+  auction house is cheaper. Prerequisites are prepared before regular crafts. Start Queue only selects
+  the first batch, and every Craft Next batch requires a fresh player click through the same craft path
+  as Create. Delayed continuation callbacks carry a run ID so an old queue run cannot change a newer one.
 - Herbalism and Skinning have no recipes: their ranks are Mining's (same skill and cost) and their
   trainers come from the town map data. A rank needs level 10, 20 and 35 for caps 150, 225 and 300
   unless its data says otherwise.
@@ -243,5 +249,6 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   (Takeover.lua), `test-profession-link-view.lua` (LinkView.lua), `test-profession-shift-click.lua`
   (AuctionHouse.lua), `test-profession-merchant-events.lua` (Vendors.lua),
   `test-shopping-list-plan.lua` (ShoppingPlan.lua), `test-shopping-consumables.lua` (Consumables.lua),
-  and the looks in `test-icon-look.lua` and
-  `test-qol-bars-look.lua`.
+  and the looks in `test-icon-look.lua` and `test-qol-bars-look.lua`.
+- Queue and marker additions: `test-profession-craft-queue.lua`,
+  `test-profession-recipe-markers.lua`, and `test-shopping-vendor-routing.lua`.

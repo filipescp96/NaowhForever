@@ -108,6 +108,15 @@ local function BuyPrice(item)
     return scan or vendor
 end
 
+local function ShouldBuyAH(item)
+    local api = ns.ProfWindowAPI
+    if not (api and api.IsVendorItem(item)) then return true end
+    local ah = ns.AuctionPrice and ns.AuctionPrice(item)
+    local prices = ns.AccountSettings().profVendorPrices
+    local vendor = type(prices) == "table" and prices[item]
+    return ah and vendor and ah < vendor or false
+end
+
 local Cheapest
 
 local function PartsCost(m, plan, depth)
@@ -141,8 +150,7 @@ local function ByName(a, b)
 end
 
 local function Listed(part)
-    local api = ns.ProfWindowAPI
-    return not shopPlan.owned[part] and not (api and api.IsVendorItem(part))
+    return not shopPlan.owned[part] and ShouldBuyAH(part)
 end
 
 local function Supply(item, want, from, into, depth)
@@ -305,7 +313,7 @@ local function Needs(recipeID)
     local out, owned = {}, api.Owned()
     local ok, reagents = pcall(api.Reagents, recipeID)
     for _, r in ipairs(ok and reagents or EMPTY) do
-        if not owned[r.itemID] and not api.IsVendorItem(r.itemID) then out[r.itemID] = r.need end
+        if not owned[r.itemID] and ShouldBuyAH(r.itemID) then out[r.itemID] = r.need end
     end
     return out
 end
@@ -316,7 +324,7 @@ local function HasNeeds(recipeID)
     local ok, reagents = pcall(api.Reagents, recipeID)
     if not ok then return false end
     for _, r in ipairs(reagents) do
-        if not owned[r.itemID] and not api.IsVendorItem(r.itemID) then return true end
+        if not owned[r.itemID] and ShouldBuyAH(r.itemID) then return true end
     end
     return false
 end
@@ -330,24 +338,34 @@ local function OnChange(fn)
     listeners[#listeners + 1] = fn
 end
 
-local function Add(info, crafts)
+local function Add(info, crafts, got, quiet, fromQueue)
     local need = Needs(info.recipeID)
-    if next(need) == nil then return end
+    if next(need) == nil then return false end
     local list = List()
     local craft = list[info.recipeID]
     if craft then
         craft.count = craft.count + crafts
         craft.icon = craft.icon or info.icon
         for item, per in pairs(need) do craft.need[item] = per end
+        if got then
+            craft.got = craft.got or {}
+            for item, qty in pairs(got) do craft.got[item] = (craft.got[item] or 0) + qty end
+        end
+        if craft.fromQueue ~= fromQueue then craft.fromQueue = false end
     else
-        list[info.recipeID] = { name = info.name, icon = info.icon, count = crafts, need = need }
+        list[info.recipeID] = { name = info.name, icon = info.icon, count = crafts, need = need, got = got,
+            fromQueue = fromQueue and true or false }
     end
     local parts = {}
     for item, per in pairs(need) do
         parts[#parts + 1] = TEXT_PART:format(per * crafts, ItemName(item) or (TEXT_ITEM .. item))
     end
-    ns.Print(TEXT_ADDED:format(info.name, crafts, crafts == 1 and TEXT_CRAFT or TEXT_CRAFTS, table.concat(parts, ", ")))
+    if not quiet then
+        ns.Print(TEXT_ADDED:format(info.name, crafts, crafts == 1 and TEXT_CRAFT or TEXT_CRAFTS,
+            table.concat(parts, ", ")))
+    end
     Redraw()
+    return true
 end
 
 local function Step(recipeID, by)
@@ -394,6 +412,7 @@ local function Clear()
     wipe(List())
     wipe(Manual())
     Trim()
+    if P.CraftQueue and P.CraftQueue.ResetSkipped then P.CraftQueue.ResetSkipped() end
     Redraw()
 end
 
@@ -409,6 +428,7 @@ Shopping.SetItem = SetItem
 Shopping.RemoveItem = RemoveItem
 Shopping.Trim = Trim
 Shopping.BuyPrice = BuyPrice
+Shopping.ShouldBuyAH = ShouldBuyAH
 Shopping.Cheapest = Cheapest
 Shopping.Materials = Materials
 Shopping.Drop = Drop

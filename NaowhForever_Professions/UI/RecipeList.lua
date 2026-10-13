@@ -32,6 +32,10 @@ local TEXT_GAP = 6
 local STAR_GAP = 4
 local STAR_SIZE = 12
 local CART_GAP, CART_SIZE = 4, 12
+local QUEUE_GAP, QUEUE_SIZE = 4, 12
+local BAG_GAP, BAG_SIZE = 4, 12
+local QUEUE_ICON = "Interface\\Icons\\Trade_BlackSmithing"
+local BAG_ICON = "Interface\\Icons\\INV_Misc_Bag_08"
 local HEAD_X, SUB_HEAD_X = 4, 14
 local COUNT_X, COUNT_GAP, ICON_X = 4, 6, 24
 local TEXT_HEAD = "%s (%d)"
@@ -39,6 +43,11 @@ local TEXT_OPEN, TEXT_CLOSED = "-  ", "+  "
 local TEXT_RECIPE = ns.L("Recipe ")
 local TEXT_SEPARATOR = " | "
 local TEXT_REQUIRED = ns.L("Required skill: %d  (%s)")
+local TEXT_BAGS = ns.L("In Bags")
+local TEXT_BANK = ns.L("In Bank")
+local TEXT_SHOPPING_LIST = ns.L("Shopping List")
+local TEXT_CRAFTING_QUEUE = ns.L("Crafting Queue")
+local TEXT_COUNT = ns.L("%d")
 
 local win
 local rows = {}
@@ -82,6 +91,33 @@ end
 
 local function HasShoppingCraft(craft)
     return type(craft) == "table" and (tonumber(craft.count) or 0) > 0
+end
+
+local function ShoppingCount(craft)
+    return type(craft) == "table" and math.max(0, tonumber(craft.count) or 0) or 0
+end
+
+local function QueuedCount(recipeID)
+    local queue = P.CraftQueue
+    local list = queue and queue.List and queue.List()
+    if type(list) ~= "table" then return 0 end
+    local crafts = type(list.crafts) == "table" and list.crafts or {}
+    local prerequisites = type(list.prerequisites) == "table" and list.prerequisites or {}
+    local craft = crafts[recipeID]
+    local prerequisite = prerequisites[recipeID]
+    local craftCount = type(craft) == "table" and math.max(0, tonumber(craft.count) or 0) or 0
+    local prerequisiteCount = type(prerequisite) == "table" and math.max(0, tonumber(prerequisite.count) or 0) or 0
+    return craftCount + prerequisiteCount
+end
+
+local function HasQueuedCraft(recipeID)
+    return QueuedCount(recipeID) > 0
+end
+
+local function OwnedCounts(recipeID)
+    local output = R.OutputItem(recipeID)
+    if not output then return 0, 0 end
+    return math.max(0, tonumber(R.ItemCount(output)) or 0), math.max(0, tonumber(R.BankCount(output)) or 0)
 end
 
 local function AlignRows(visible)
@@ -167,6 +203,27 @@ local function OnRowEnter(self)
     GameTooltip:Show()
 end
 
+local function MarkerTooltip(self, title, firstLabel, firstCount, secondLabel, secondCount)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(title, 1, 1, 1)
+    GameTooltip:AddDoubleLine(firstLabel, TEXT_COUNT:format(firstCount),
+        T.fg.r, T.fg.g, T.fg.b, T.accent.r, T.accent.g, T.accent.b)
+    if secondLabel then
+        GameTooltip:AddDoubleLine(secondLabel, TEXT_COUNT:format(secondCount),
+            T.fg.r, T.fg.g, T.fg.b, T.accent.r, T.accent.g, T.accent.b)
+    end
+    GameTooltip:Show()
+end
+
+local function Marker(row, size)
+    local marker = CreateFrame("Button", nil, row)
+    marker:SetSize(size, size)
+    marker:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    marker:SetScript("OnClick", function(_, button) OnRowClick(row, button) end)
+    marker:SetScript("OnLeave", GameTooltip_Hide)
+    return marker
+end
+
 local function NewRow(i)
     local row = CreateFrame("Button", nil, win.list)
     row:SetSize(Style.LEFT_W - ROW_RIGHT_ROOM, ROW_H)
@@ -191,8 +248,7 @@ local function NewRow(i)
     row.fav:SetPoint("RIGHT", row.profit, "LEFT", -STAR_GAP, 0)
     Widgets.Star(row.fav, true)
     row.fav:Hide()
-    row.cart = CreateFrame("Frame", nil, row)
-    row.cart:SetSize(CART_SIZE, CART_SIZE)
+    row.cart = Marker(row, CART_SIZE)
     local function CartPart(width, height, x, y)
         local part = row.cart:CreateTexture(nil, "OVERLAY")
         part:SetSize(width, height)
@@ -206,6 +262,25 @@ local function NewRow(i)
     CartPart(2, 2, 5, -10) -- wheels
     CartPart(2, 2, 10, -10)
     row.cart:Hide()
+    row.cart:SetScript("OnEnter", function(self)
+        MarkerTooltip(self, TEXT_SHOPPING_LIST, TEXT_SHOPPING_LIST, self.count or 0)
+    end)
+    row.craftQueue = Marker(row, QUEUE_SIZE)
+    row.craftQueue.icon = Widgets.Crop(row.craftQueue:CreateTexture(nil, "OVERLAY"))
+    row.craftQueue.icon:SetAllPoints()
+    row.craftQueue.icon:SetTexture(QUEUE_ICON)
+    row.craftQueue:Hide()
+    row.craftQueue:SetScript("OnEnter", function(self)
+        MarkerTooltip(self, TEXT_CRAFTING_QUEUE, TEXT_CRAFTING_QUEUE, self.count or 0)
+    end)
+    row.bag = Marker(row, BAG_SIZE)
+    row.bag.icon = Widgets.Crop(row.bag:CreateTexture(nil, "OVERLAY"))
+    row.bag.icon:SetAllPoints()
+    row.bag.icon:SetTexture(BAG_ICON)
+    row.bag:Hide()
+    row.bag:SetScript("OnEnter", function(self)
+        MarkerTooltip(self, self.itemName or TEXT_BAGS, TEXT_BAGS, self.bags or 0, TEXT_BANK, self.bank or 0)
+    end)
     row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row.text:SetJustifyH("LEFT")
     row.text:SetWordWrap(false)
@@ -216,21 +291,35 @@ local function NewRow(i)
     return row
 end
 
-local function TextBeforeMarkers(row, fav, cart)
+local function TextBeforeMarkers(row, fav, cart, queued, owned)
     row.fav:SetShown(fav)
-    row.cart:SetShown(cart)
+    row.cart:SetShown(cart > 0)
+    row.craftQueue:SetShown(queued > 0)
+    row.bag:SetShown(owned)
+    row.cart.count = cart
+    row.craftQueue.count = queued
     row.fav:ClearAllPoints()
     row.cart:ClearAllPoints()
+    row.craftQueue:ClearAllPoints()
+    row.bag:ClearAllPoints()
     local anchor = row.profit
     if fav then
         row.fav:SetPoint("RIGHT", anchor, "LEFT", -STAR_GAP, 0)
         anchor = row.fav
     end
-    if cart then
+    if cart > 0 then
         row.cart:SetPoint("RIGHT", anchor, "LEFT", -CART_GAP, 0)
         anchor = row.cart
     end
-    local gap = (fav or cart) and CART_GAP or TEXT_GAP
+    if queued > 0 then
+        row.craftQueue:SetPoint("RIGHT", anchor, "LEFT", -QUEUE_GAP, 0)
+        anchor = row.craftQueue
+    end
+    if owned then
+        row.bag:SetPoint("RIGHT", anchor, "LEFT", -BAG_GAP, 0)
+        anchor = row.bag
+    end
+    local gap = (fav or cart > 0 or queued > 0 or owned) and QUEUE_GAP or TEXT_GAP
     row.text:SetPoint("RIGHT", anchor, "LEFT", -gap, 0)
 end
 
@@ -244,6 +333,8 @@ local function FillHeader(row, cat)
     row.icon:Hide()
     row.fav:Hide()
     row.cart:Hide()
+    row.craftQueue:Hide()
+    row.bag:Hide()
     row.text:SetPoint("RIGHT", row.profit, "LEFT", -TEXT_GAP, 0)
     row.head:Show()
     row.sel:Hide()
@@ -262,7 +353,7 @@ local function FillUnlearned(row, r)
     local profit, color = ListProfit(r.spell, r.item or read, made)
     row.profit:SetText(profit)
     SetColor(row.profit, color)
-    TextBeforeMarkers(row, Favorites.Is(r), false)
+    TextBeforeMarkers(row, Favorites.Is(r), 0, 0, false)
     row.head:Hide()
     row.sel:SetShown(r == W.selectedUnlearned)
 end
@@ -276,7 +367,10 @@ local function FillRecipe(row, info)
     SetColor(row.text, Style.DIFFICULTY_RGB[info.relativeDifficulty] or T.fg)
     row.count:SetText(W.linked and Orders.Count(info.recipeID) or FormatCraftCount(info))
     local shopping = not W.linked and P.Shopping and P.Shopping.List and P.Shopping.List()[info.recipeID]
-    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), HasShoppingCraft(shopping))
+    local bags, bank = OwnedCounts(info.recipeID)
+    row.bag.bags, row.bag.bank, row.bag.itemName = bags, bank, info.name
+    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), ShoppingCount(shopping),
+        not W.linked and QueuedCount(info.recipeID) or 0, not W.linked and (bags > 0 or bank > 0))
     local profit, color = ListProfit(info.recipeID, R.OutputItem(info.recipeID))
     row.profit:SetText(profit)
     SetColor(row.profit, color)
@@ -364,3 +458,7 @@ end
 
 List.RedrawAll = RedrawAll
 List.HasShoppingCraft = HasShoppingCraft
+List.HasQueuedCraft = HasQueuedCraft
+List.ShoppingCount = ShoppingCount
+List.QueuedCount = QueuedCount
+List.OwnedCounts = OwnedCounts

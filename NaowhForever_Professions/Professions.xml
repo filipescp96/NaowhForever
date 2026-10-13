@@ -21,6 +21,7 @@
     <Script file="BagRoom.lua"/>
     <Script file="ShoppingPlan.lua"/>
     <Script file="Consumables.lua"/>
+    <Script file="CraftQueue.lua"/>
     <Script file="Patterns.lua"/>
     <Script file="Disenchant.lua"/>
     <Script file="View\Style.lua"/>
