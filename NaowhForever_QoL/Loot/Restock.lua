@@ -339,14 +339,26 @@ local function BuyBundles(index, bundles, bundle, perBuy)
     end
 end
 
-local function Buy(alreadySpent)
-    if not S.Get("restockBuy") then return end
+local function Buy(alreadySpent, hunterOnly)
+    if hunterOnly then
+        if not HunterAmmoOn() or not S.Get("restockHunterAmmoBuy") then return 0 end
+    elseif not S.Get("restockBuy") then
+        return 0
+    end
     local want = Wanted()
     local money = GetMoney() - alreadySpent
     local spent, bought = 0, {}
     for index = 1, GetMerchantNumItems() do
         local itemID = tonumber((GetMerchantItemLink(index) or ""):match(ITEM_PATTERN))
-        local target = itemID and want[itemID]
+        local ammo = GetInventoryItemID("player", AMMO_SLOT)
+        local isAmmo = itemID and itemID == ammo
+        local target
+        if hunterOnly then
+            target = isAmmo and S.Get("restockHunterAmmoTarget")
+        else
+            target = itemID and want[itemID]
+            if isAmmo and HunterAmmoOn() and S.Get("restockHunterAmmoBuy") then target = nil end
+        end
         local info = target and C_MerchantFrame.GetItemInfo(index)
         if info and info.isPurchasable and not info.hasExtendedCost then
             local bundles, bundle, perBuy = Bundles(index, itemID, target, info, money)
@@ -368,7 +380,10 @@ local function OnMerchantShow()
     HideAlert()
     SellJunk()
     local spent = Repair()
-    if On() then Buy(spent) end
+    if On() then
+        spent = Buy(spent)
+        Buy(spent, true)
+    end
 end
 
 local function OnRestingChanged()
@@ -485,6 +500,10 @@ local HUNTER = {
     { key = "restockHunterAmmoBelow", label = "Remind Me When Ammo Falls To", slider = AMMO_RANGE,
       needs = "restockHunterAmmo",
       help = "Reminds at or below this many equipped arrows or shot across all bag stacks." },
+    { key = "restockHunterAmmoBuy", label = "Buy Hunter Ammo at Vendors", toggle = true,
+      help = "Buys equipped ammo up to your Hunter carry amount when you open a vendor." },
+    { key = "restockHunterAmmoTarget", label = "Hunter Ammo to Carry", slider = AMMO_RANGE,
+      needs = "restockHunterAmmoBuy", help = "The amount of equipped ammo to keep in your bags." },
 }
 local CARRY_GROUP = Group("Reagents to Carry")
 local LOOK = ns.Shared.Settings.Look("restock", { text = true, size = TEXT_RANGE, background = "card" })
