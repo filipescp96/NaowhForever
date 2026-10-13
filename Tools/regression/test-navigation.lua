@@ -732,6 +732,7 @@ Click(Button("Exit Config")); Flush()
 Check(not Text("Exit Config") and not ns.IsUnlockModeActive(), "and Exit Config closes it")
 
 ns.OpenOptionsWindow("Settings"); Flush()
+Check(not Text("Top Bar"), "the Top Bar is a card under Quality of Life, not a row under Settings > Modules")
 local groupInspectRows = 0
 for _, f in ipairs(frames) do
     if f.text == "Group Inspect" and f:IsShown() and f.parent and f.parent:IsShown() then

@@ -81,7 +81,7 @@ local function ModulesSection(W, parent, y)
     local _, h = W:SectionHeader(parent, "MODULES", y); y = y - h
     local rows = {}
     for _, mod in ipairs(MODULES) do
-        if mod.addon then rows[#rows + 1] = ModuleRow(mod) end
+        if mod.addon and not mod.inQoL then rows[#rows + 1] = ModuleRow(mod) end
     end
     return Rows(W, parent, y, rows)
 end
