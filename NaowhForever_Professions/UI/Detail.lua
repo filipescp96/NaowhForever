@@ -19,6 +19,7 @@ local EnableButton = Widgets.EnableButton
 local ICON = 44
 local STAR_GAP = 10
 local NAME_GAP = Style.ICON_NAME_GAP
+local SHOPPING_COUNT_GAP = 6
 local SEARCH_W, SEARCH_H = 84, 22
 local SEARCH_DROP = 36
 local DESC_GAP = 12
@@ -37,6 +38,7 @@ local TEXT_CREATE, TEXT_CREATE_ALL = ns.L("Create"), ns.L("Create All")
 local TEXT_CREATE_ALL_COUNT = ns.L("Create All (%d)")
 local TEXT_SEARCH = ns.L("Search AH")
 local TEXT_TRACK = _G.PROFESSIONS_TRACK_RECIPE or ns.L("Track Recipe")
+local TEXT_IN_SHOPPING_LIST = ns.L("(%d in Shopping List)")
 local TIP_FAVORITE = ns.L("Favorite")
 local TIP_FAVORITE_HELP = ns.L("Makes this recipe a favourite, or no longer one. Favourites "
     .. "get a star in the list, and the Filter menu's Favorites shows only them. Right-click "
@@ -149,6 +151,27 @@ local function FillHeader(info, output)
     Widgets.Star(d.fav.tex, Favorites.Is(info))
     SetColor(d.name, Style.DIFFICULTY_RGB[info.relativeDifficulty] or T.fg)
     Widgets.ShowSearch(d.search, not W.linked and output and (R.ItemName(output) or info.name) or nil, d.name, d)
+    Detail.UpdateShoppingCount(info)
+end
+
+function Detail.UpdateShoppingCount(info)
+    if not (win and win.detail and win.detail.shoppingCount) then return end
+    local d = win.detail
+    info = info or R.SelectedInfo()
+    local list = P.Shopping and P.Shopping.List and P.Shopping.List()
+    local craft = info and list and list[info.recipeID]
+    local count = craft and tonumber(craft.count)
+    d.shoppingCount:SetShown(not W.linked and count ~= nil and count > 0)
+    if not (count and count > 0) then return end
+
+    d.shoppingCount:SetText(TEXT_IN_SHOPPING_LIST:format(count))
+    d.shoppingCount:ClearAllPoints()
+    local nameWidth = d.name.GetStringWidth and d.name:GetStringWidth() or 0
+    local available = d.name:GetWidth() or nameWidth
+    local countWidth = d.shoppingCount.GetStringWidth and d.shoppingCount:GetStringWidth() or 0
+    local x = math.min(nameWidth + SHOPPING_COUNT_GAP,
+        math.max(0, available - countWidth))
+    d.shoppingCount:SetPoint("LEFT", d.name, "LEFT", x, 0)
 end
 
 local function FillReagents(info)
@@ -268,6 +291,9 @@ local function BuildHeader(d)
     d.name:SetPoint("LEFT", d.fav, "RIGHT", NAME_GAP, 0)
     d.name:SetPoint("RIGHT", -RIGHT_EDGE, 0)
     d.name:SetJustifyH("LEFT")
+    d.shoppingCount = ns.Font(d, Style.FONT_SMALL, nil, T.muted)
+    d.shoppingCount:SetJustifyH("LEFT")
+    d.shoppingCount:Hide()
     d.search = ns.Button(d, TEXT_SEARCH, SEARCH_W, SEARCH_H, function() P.AH.Search(d.search.itemName) end)
     d.search:SetPoint("RIGHT", d, "TOPRIGHT", -RIGHT_EDGE, -SEARCH_DROP)
     ns.Tooltip(d.search, TEXT_SEARCH, TIP_SEARCH_HELP)

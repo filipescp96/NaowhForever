@@ -1,0 +1,46 @@
+# Forever AH Count
+
+Forever AH Count adds a small Auction House icon and the active quantity in parentheses after learned recipe names in Naowh Forever's profession list. Recipes with no active auctions stay unchanged.
+
+The addon totals item quantities, not auction-stack count. For example, two active stacks containing 5 items each display `10`.
+
+## Profitable & Not Selling filter
+
+Naowh Forever's Filter menu gains a **Profitable & Not Selling** checkbox directly below **Profitable**. It shows only learned recipes that:
+
+- have a positive profit according to Naowh Forever's current craft-price calculation; and
+- have no active quantity in Forever AH Count's latest Auction House cache.
+
+Like Naowh's built-in **Profitable** filter, the checkbox is disabled until auction prices have been scanned. An owner-auction update automatically rebuilds the filtered recipe list.
+
+## Keeping counts current
+
+World of Warcraft only exposes the player's complete owner-auction list while the Auction House is available. The addon therefore:
+
+- requests the owner list whenever the Auction House opens;
+- replaces its cache whenever that list changes (posting, cancelling, expiring, or selling while the Auction House is open);
+- saves the latest counts per character so they remain visible after closing the Auction House or reloading the UI.
+
+After installing the addon, visit the Auction House once to populate the cache. Use `/fahc` to see when it was last updated, or `/fahc refresh` while the Auction House is open to request an immediate refresh.
+
+## Favorite recipes at vendors and trainers
+
+An available recipe or pattern that produces one of your unlearned Naowh Forever favorite crafts gets Naowh's gold favorite star directly after its name:
+
+- profession trainers are marked only when the favorite recipe is currently trainable;
+- merchant pattern items are marked while they are in stock;
+- already-learned favorites, sold-out patterns, ordinary merchant goods, and the buyback tab are not marked.
+
+The markers update when a merchant or trainer refreshes, when a recipe is learned, and when its favorite state changes.
+
+## Favorite Patterns paging
+
+Naowh Forever's **Favorite Patterns** Auction House panel scans the complete favorite-pattern list instead of stopping at the first visible rows. Already-learned recipes stay excluded, and patterns confirmed to have no active buyout are removed from the panel. Available and still-scanning entries use pages of eight rows, navigable with the `<` and `>` buttons or the mouse wheel while hovering the panel.
+
+## Scrollable Shopping List
+
+The Shopping List beside the profession window no longer truncates its Crafts, Materials, or Make First sections. All entries share a clean, scrollbar-free area; hover the list and use the mouse wheel. The title, estimated total, and Clear button remain fixed.
+
+When a selected recipe is already in the Shopping List, its header also shows a small muted `(X in Shopping List)` label. The count updates immediately when the recipe is added, increased, decreased, removed, or cleared.
+
+Learned recipes that are already on the Shopping List also receive a small blue shopping-cart marker in the left recipe list, so they can be identified without selecting each recipe.

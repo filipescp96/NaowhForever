@@ -22,6 +22,8 @@ local LINE_DROP, LINE_GAP = 10, 4
 local LINE_ROOM = 20
 local BUTTON_W, BUTTON_H = 120, 22
 local BUTTON_GAP, BUTTON_BOTTOM = 4, 8
+local PAGE_BUTTON_W, PAGE_BUTTON_H = 28, 20
+local PAGE_BUTTON_GAP, PAGE_EDGE = 4, 8
 local PRICE_SORT = { { sortOrder = Enum.AuctionHouseSortOrder.Price, reverseSort = false } }
 local EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "PLAYER_MONEY", "ITEM_DATA_LOAD_RESULT",
     "ITEM_SEARCH_RESULTS_UPDATED", "COMMODITY_SEARCH_RESULTS_UPDATED", "AUCTION_HOUSE_PURCHASE_COMPLETED",
@@ -35,7 +37,6 @@ local TEXT_NONE_LISTED = ns.L("none listed")
 local TEXT_SCAN = ns.L("scan ")
 local TEXT_NOT_LISTED = ns.L("not listed")
 local TEXT_NO_SCAN = ns.L("no scan yet")
-local TEXT_MORE = ns.L("+%d more")
 local TEXT_PATTERN = ns.L("the pattern")
 local TEXT_ACCEPT, TEXT_CANCEL, TEXT_CLOSE = ns.L("Accept"), ns.L("Cancel"), ns.L("Close")
 local TEXT_TRY_AGAIN, TEXT_SEARCH = ns.L("Try Again"), ns.L("Search")
@@ -64,6 +65,7 @@ local waiting = {}
 local lookup, lookups, looked = nil, {}, {}
 local lookupWait
 local pending = false
+local page = 1
 local events = CreateFrame("Frame")
 local Render, RenderConfirm
 
@@ -290,6 +292,57 @@ local function FillRow(i, e, scanned)
     row:Show()
 end
 
+local function ChangePage(delta)
+    if not market then return end
+    local pages = market.pageCount or 1
+    local nextPage = math.max(1, math.min(pages, page + delta))
+    if nextPage == page then return end
+    page = nextPage
+    Render()
+end
+
+local function BuildPager()
+    if market.pager then return end
+    local pager = CreateFrame("Frame", nil, market)
+    pager:SetPoint("BOTTOMRIGHT", -PAGE_EDGE, PAGE_EDGE)
+    pager:SetSize(118, PAGE_BUTTON_H)
+    pager.next = ns.Button(pager, ">", PAGE_BUTTON_W, PAGE_BUTTON_H, function() ChangePage(1) end)
+    pager.next:SetPoint("RIGHT")
+    pager.previous = ns.Button(pager, "<", PAGE_BUTTON_W, PAGE_BUTTON_H, function() ChangePage(-1) end)
+    pager.previous:SetPoint("RIGHT", pager.next, "LEFT", -PAGE_BUTTON_GAP, 0)
+    pager.label = ns.Font(pager, Style.FONT_SMALL, nil, T.muted)
+    pager.label:SetPoint("RIGHT", pager.previous, "LEFT", -PAGE_BUTTON_GAP, 0)
+    pager.label:SetJustifyH("RIGHT")
+    market.pager = pager
+    market:EnableMouseWheel(true)
+    market:HookScript("OnMouseWheel", function(_, delta) ChangePage(delta > 0 and -1 or 1) end)
+end
+
+local function UpdatePager(pages)
+    BuildPager()
+    market.pageCount = pages
+    market.pager.label:SetText(("%d / %d"):format(page, pages))
+    market.pager.previous:SetEnabled(page > 1)
+    market.pager.previous:SetAlpha(page > 1 and 1 or Style.DIMMED)
+    market.pager.next:SetEnabled(page < pages)
+    market.pager.next:SetAlpha(page < pages and 1 or Style.DIMMED)
+    market.pager:SetShown(pages > 1)
+end
+
+local function QueueAllLookups(list)
+    local remaining = 0
+    for _, e in ipairs(list) do
+        if live[e.item] == nil then
+            remaining = remaining + 1
+            if not looked[e.item] then
+                looked[e.item] = true
+                lookups[#lookups + 1] = e.item
+            end
+        end
+    end
+    return remaining
+end
+
 Render = function()
     local ah = _G.AuctionHouseFrame
     if not (On() and ah and ah:IsShown()) then return market and market:Hide() end
@@ -297,10 +350,30 @@ Render = function()
     if #list == 0 then return market and market:Hide() end
     if not market then market = Popup.New(TEXT_TITLE) end
     if market.dismissed then return end
+    local remaining = QueueAllLookups(list)
+    local display, found = {}, 0
+    for _, e in ipairs(list) do
+        -- A completed lookup with no buyout is omitted instead of consuming a row.
+        if live[e.item] ~= false then display[#display + 1] = e end
+        if live[e.item] then found = found + 1 end
+    end
+    if #display == 0 and remaining == 0 then
+        market:Hide()
+        return
+    end
+    local pages = math.max(1, math.ceil(#display / MAX_ROWS))
+    page = math.max(1, math.min(page, pages))
+    local first = (page - 1) * MAX_ROWS + 1
+    local shown = math.min(MAX_ROWS, math.max(0, #display - first + 1))
     local scanned = ns.AuctionScanTime and ns.AuctionScanTime()
-    for i = 1, math.min(#list, MAX_ROWS) do FillRow(i, list[i], scanned) end
-    Popup.Fit(market, math.min(#list, MAX_ROWS), #list > MAX_ROWS)
-    market.note:SetText(#list > MAX_ROWS and TEXT_MORE:format(#list - MAX_ROWS) or "")
+    for row = 1, shown do FillRow(row, display[first + row - 1], scanned) end
+    Popup.Fit(market, shown, pages > 1 or remaining > 0)
+    if remaining > 0 then
+        market.note:SetText(("%d available, scanning %d"):format(found, remaining))
+    else
+        market.note:SetText(("%d available"):format(found))
+    end
+    UpdatePager(pages)
     market:ClearAllPoints()
     market:SetPoint("TOPLEFT", ah, "TOPRIGHT", PANEL_GAP, 0)
     market:Show()
@@ -320,6 +393,7 @@ end
 
 local function Closed()
     buy, lookup = nil, nil
+    page = 1
     wipe(live)
     wipe(lookups)
     wipe(looked)
@@ -356,6 +430,7 @@ end
 
 local function OnEvent(_, event, name, loaded)
     if event == "AUCTION_HOUSE_SHOW" then
+        page = 1
         if market then market.dismissed = nil end
     elseif event == "AUCTION_HOUSE_CLOSED" then
         return Closed()

@@ -31,6 +31,7 @@ local ICON_SHRINK = Style.ROW_ICON_SHRINK
 local TEXT_GAP = 6
 local STAR_GAP = 4
 local STAR_SIZE = 12
+local CART_GAP, CART_SIZE = 4, 12
 local HEAD_X, SUB_HEAD_X = 4, 14
 local COUNT_X, COUNT_GAP, ICON_X = 4, 6, 24
 local TEXT_HEAD = "%s (%d)"
@@ -173,6 +174,21 @@ local function NewRow(i)
     row.fav:SetPoint("RIGHT", row.profit, "LEFT", -STAR_GAP, 0)
     Widgets.Star(row.fav, true)
     row.fav:Hide()
+    row.cart = CreateFrame("Frame", nil, row)
+    row.cart:SetSize(CART_SIZE, CART_SIZE)
+    local function CartPart(width, height, x, y)
+        local part = row.cart:CreateTexture(nil, "OVERLAY")
+        part:SetSize(width, height)
+        part:SetPoint("TOPLEFT", x, y)
+        part:SetColorTexture(T.accent.r, T.accent.g, T.accent.b, 1)
+    end
+    CartPart(4, 2, 0, -1)  -- handle
+    CartPart(2, 6, 3, -2)  -- handle stem
+    CartPart(8, 5, 4, -3)  -- basket
+    CartPart(8, 1, 4, -8)  -- axle
+    CartPart(2, 2, 5, -10) -- wheels
+    CartPart(2, 2, 10, -10)
+    row.cart:Hide()
     row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row.text:SetJustifyH("LEFT")
     row.text:SetWordWrap(false)
@@ -183,9 +199,22 @@ local function NewRow(i)
     return row
 end
 
-local function TextBeforeStar(row, fav)
+local function TextBeforeMarkers(row, fav, cart)
     row.fav:SetShown(fav)
-    row.text:SetPoint("RIGHT", fav and row.fav or row.profit, "LEFT", fav and -STAR_GAP or -TEXT_GAP, 0)
+    row.cart:SetShown(cart)
+    row.fav:ClearAllPoints()
+    row.cart:ClearAllPoints()
+    local anchor = row.profit
+    if fav then
+        row.fav:SetPoint("RIGHT", anchor, "LEFT", -STAR_GAP, 0)
+        anchor = row.fav
+    end
+    if cart then
+        row.cart:SetPoint("RIGHT", anchor, "LEFT", -CART_GAP, 0)
+        anchor = row.cart
+    end
+    local gap = (fav or cart) and CART_GAP or TEXT_GAP
+    row.text:SetPoint("RIGHT", anchor, "LEFT", -gap, 0)
 end
 
 local function FillHeader(row, cat)
@@ -197,6 +226,7 @@ local function FillHeader(row, cat)
     row.profit:SetText("")
     row.icon:Hide()
     row.fav:Hide()
+    row.cart:Hide()
     row.text:SetPoint("RIGHT", row.profit, "LEFT", -TEXT_GAP, 0)
     row.head:Show()
     row.sel:Hide()
@@ -215,7 +245,7 @@ local function FillUnlearned(row, r)
     local profit, color = ListProfit(r.spell, r.item or read, made)
     row.profit:SetText(profit)
     SetColor(row.profit, color)
-    TextBeforeStar(row, Favorites.Is(r))
+    TextBeforeMarkers(row, Favorites.Is(r), false)
     row.head:Hide()
     row.sel:SetShown(r == W.selectedUnlearned)
 end
@@ -228,7 +258,8 @@ local function FillRecipe(row, info)
     row.text:SetText(info.name)
     SetColor(row.text, Style.DIFFICULTY_RGB[info.relativeDifficulty] or T.fg)
     row.count:SetText(W.linked and Orders.Count(info.recipeID) or FormatCraftCount(info))
-    TextBeforeStar(row, not W.linked and Favorites.Is(info))
+    local shopping = not W.linked and P.Shopping and P.Shopping.List and P.Shopping.List()[info.recipeID]
+    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), shopping ~= nil and shopping.count > 0)
     local profit, color = ListProfit(info.recipeID, R.OutputItem(info.recipeID))
     row.profit:SetText(profit)
     SetColor(row.profit, color)
@@ -280,6 +311,10 @@ function List.Render()
     for i = visible + 1, #rows do rows[i]:Hide() end
     AlignRows(visible)
     SyncScrollbar(visible)
+end
+
+function List.UpdateShoppingMarkers()
+    if win and win.list then List.Render() end
 end
 
 function List.Build(frame, below)
