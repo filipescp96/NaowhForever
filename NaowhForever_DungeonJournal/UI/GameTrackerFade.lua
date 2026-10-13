@@ -43,8 +43,8 @@ function Tracker.SyncGameTracker()
         frame:SetAlpha(FADED)
     elseif gameFaded then
         gameFaded = false
-        if euiSuppressed then SuppressEllesmere(false) end
         frame:SetAlpha(SHOWN)
+        if euiSuppressed then SuppressEllesmere(false) end
     end
 end
 
@@ -63,11 +63,7 @@ local function ApplyEvents()
 end
 
 local function OnSettingChanged(key)
-    if key == "enabled" then
-        ApplyEvents()
-    elseif key == "hideGameTracker" then
-        ApplyEvents()
-    end
+    if key == "enabled" or key == "hideGameTracker" then ApplyEvents() end
 end
 
 hooksecurefunc(ns, "Apply", ApplyEvents)

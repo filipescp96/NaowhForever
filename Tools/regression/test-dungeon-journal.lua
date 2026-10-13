@@ -1532,6 +1532,14 @@ do
     check("fading the game's quest tracker is off by default", state.defaults.hideGameTracker == false)
     S.Set("hideGameTracker", true)
     check("turning hide on fades the game tracker while ours is closed", not tracker:IsShown() and state.gameTracker.alpha == 0)
+    for _, frame in ipairs(state.made) do
+        if frame.scripts.OnEvent == ns.Journal.QuestTracker.SyncGameTracker then state.fadeEvents = frame end
+    end
+    check("the fade listens for login/loading screens without our window", state.fadeEvents
+        and state.fadeEvents.events.PLAYER_ENTERING_WORLD)
+    state.gameTracker.alpha = 1
+    state.fadeEvents.scripts.OnEvent(state.fadeEvents, "PLAYER_ENTERING_WORLD")
+    check("a loading screen re-applies the fade with our window closed", state.gameTracker.alpha == 0)
     S.Set("trackerAuto", true)
     state.instance = nil
     EnterWorld()
@@ -1558,17 +1566,28 @@ do
     -- EllesmereUI's quest tracker: its show/hide switched off while ours fades the game's, then
     -- handed back.
     state.euiSuppressors = {}
-    state.G._EQT_SetSuppressed = function(key, on) state.euiSuppressors[key] = on or nil end
+    state.suppressionCalls, state.euiAlpha = 0, 1
+    state.G._EQT_SetSuppressed = function(key, on)
+        state.suppressionCalls = state.suppressionCalls + 1
+        state.euiSuppressors[key] = on or nil
+        game:SetAlpha(next(state.euiSuppressors) and 0 or state.euiAlpha)
+    end
     ns.OpenQuestTracker(deadmines)
     tracker.scripts.OnShow(tracker)
     check("with EllesmereUI, its tracker show/hide is switched off", next(state.euiSuppressors) ~= nil and game.alpha == 0)
     tracker:Hide()
     tracker.scripts.OnHide(tracker)
     check("closing ours keeps EllesmereUI visibility suppressed", next(state.euiSuppressors) ~= nil and game.alpha == 0)
+    check("the EUI suppression call is made once per transition", state.suppressionCalls == 1)
     S.Set("hideGameTracker", false)
     check("turning hide off restores alpha and hands visibility back", next(state.euiSuppressors) == nil and game.alpha == 1)
+    check("turning hide off stops its loading-screen listener", next(state.fadeEvents.events) == nil)
     game:SetAlpha(0.5)
     check("off, other addons control alpha", game.alpha == 0.5)
+    state.euiAlpha = 0
+    S.Set("hideGameTracker", true)
+    S.Set("hideGameTracker", false)
+    check("handing back honors EUI's own hidden preference", game.alpha == 0 and next(state.euiSuppressors) == nil)
     state.G._EQT_SetSuppressed = nil
     S.Set("hideGameTracker", true)
     game:SetAlpha(1)
