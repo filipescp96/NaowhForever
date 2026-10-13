@@ -217,7 +217,7 @@ local function DeclareTracker()
             Toggle("trackerOutside", "Show Outside Dungeons",
                 "Opens the quest tracker out in the world, on the dungeon your quests are for."),
             Toggle("hideGameTracker", "Hide the Game's Quest Tracker",
-                "Fades out the game's quest tracker while this one is open in a dungeon."),
+                "Always hides the game's quest tracker and takes over EllesmereUI visibility."),
             Toggle("shareRequests", "Quest Share Requests",
                 "Ask your group to share a dungeon quest you don't have, from its group icon."),
             Toggle("acceptShared", "Accept Shared Dungeon Quests",

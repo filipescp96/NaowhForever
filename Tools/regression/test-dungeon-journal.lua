@@ -1530,16 +1530,19 @@ do
         return not tracker:IsShown()
     end)())
     check("fading the game's quest tracker is off by default", state.defaults.hideGameTracker == false)
-    S.Set("trackerAuto", true)
     S.Set("hideGameTracker", true)
+    check("turning hide on fades the game tracker while ours is closed", not tracker:IsShown() and state.gameTracker.alpha == 0)
+    S.Set("trackerAuto", true)
     state.instance = nil
     EnterWorld()
+    check("it stays faded outside dungeons", state.gameTracker.alpha == 0)
     state.instance = { id = 36, name = "The Deadmines" }
     EnterWorld()
     check("on, entering a dungeon with quests for you opens it", tracker:IsShown())
-    -- Hide the Game's Quest Tracker: faded while this one is up in the dungeon, never hidden.
+    -- Hide the Game's Quest Tracker: always faded while on, never hidden.
     local game = state.gameTracker
     check("the game's quest tracker is faded", game.shown and game.alpha == 0)
+    check("without EllesmereUI, its hand-over is inactive", state.G._EQT_SetSuppressed == nil)
     game:SetAlpha(1)
     check("and stays faded when its alpha changes", game.shown and game.alpha == 0)
     game:Show()
@@ -1551,7 +1554,25 @@ do
     state.combat = false
     tracker:Hide()
     tracker.scripts.OnHide(tracker)
-    check("closing this one brings the game's back", game.shown and game.alpha == 1)
+    check("closing this one keeps the game's faded", game.shown and game.alpha == 0)
+    -- EllesmereUI's quest tracker: its show/hide switched off while ours fades the game's, then
+    -- handed back.
+    state.euiSuppressors = {}
+    state.G._EQT_SetSuppressed = function(key, on) state.euiSuppressors[key] = on or nil end
+    ns.OpenQuestTracker(deadmines)
+    tracker.scripts.OnShow(tracker)
+    check("with EllesmereUI, its tracker show/hide is switched off", next(state.euiSuppressors) ~= nil and game.alpha == 0)
+    tracker:Hide()
+    tracker.scripts.OnHide(tracker)
+    check("closing ours keeps EllesmereUI visibility suppressed", next(state.euiSuppressors) ~= nil and game.alpha == 0)
+    S.Set("hideGameTracker", false)
+    check("turning hide off restores alpha and hands visibility back", next(state.euiSuppressors) == nil and game.alpha == 1)
+    game:SetAlpha(0.5)
+    check("off, other addons control alpha", game.alpha == 0.5)
+    state.G._EQT_SetSuppressed = nil
+    S.Set("hideGameTracker", true)
+    game:SetAlpha(1)
+    check("without EllesmereUI, alpha-only changes are still re-faded", game.alpha == 0)
     EnterWorld()
     check("closed in there, it stays closed", not tracker:IsShown())
     state.instance = nil
@@ -1570,7 +1591,7 @@ do
     check("and fades the game's quest tracker", game.alpha == 0)
     state.instance = nil
     tracker.scripts.OnEvent(tracker, "PLAYER_ENTERING_WORLD")
-    check("leaving the dungeon with it open brings the game's back", game.alpha == 1)
+    check("leaving the dungeon keeps the game's faded", game.alpha == 0)
     S.Set("hideGameTracker", false)
     state.instance = { id = 36, name = "The Deadmines" }
     tracker.scripts.OnEvent(tracker, "PLAYER_ENTERING_WORLD")
@@ -1579,7 +1600,7 @@ do
     check("switched on again, it is faded", game.alpha == 0)
     tracker:Hide()
     tracker.scripts.OnHide(tracker)
-    check("closed again, the game's is back", game.alpha == 1)
+    check("closed again, the game's stays faded", game.alpha == 0)
     -- The game's own was down (no quests to watch): it stays down after.
     game.shown = false
     ns.OpenQuestTracker(deadmines)
@@ -1589,6 +1610,7 @@ do
     check("one that was not up before stays down", not game.shown)
     game.shown = true
     check("the game's quest tracker is never hidden or shown by it", state.gameHides == nil)
+    S.Set("hideGameTracker", false)
     S.Set("trackerAuto", false)
     state.instance = nil
     EnterWorld()

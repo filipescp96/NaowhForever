@@ -490,6 +490,12 @@ the game's own tables, and what they can't settle is listed in the pull request 
   (`ns.Shared.MapPins`); the keys stay in the Journal's store.
 - The game's quest tracker is faded with `SetAlpha`, never hidden: it is an Edit Mode frame with
   secure quest item buttons.
+  Other add-ons set its alpha without `Show()` (EllesmereUI on combat and target changes, BigWigs
+  after a boss), so a `SetAlpha` hook fades it again. While it is faded, EllesmereUI's tracker
+  show/hide is switched off through its own `_EQT_SetSuppressed` API, so the two never fight; its
+  skin stays. The fade applies everywhere while the module and setting are on, even with our
+  tracker closed. Login and loading screens synchronize it; turning the setting
+  or module off restores alpha once and hands visibility back to EllesmereUI.
 - The quest tracker scrolls past 70% of the screen's height at its scale, and 420 at the least.
   After a `/reload` its auto-open runs inside that loading screen's `PLAYER_ENTERING_WORLD`, too
   late to hear it, so it also looks where you are as it is switched on.
