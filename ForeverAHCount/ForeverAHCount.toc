@@ -2,7 +2,7 @@
 ## Title: Forever AH Count
 ## Notes: Adds auction counts, profit filters, and favorite-recipe markers to Naowh Forever.
 ## Author: Vykorin
-## Version: 1.6.0
+## Version: 1.7.0
 ## Dependencies: NaowhForever_Professions
 ## SavedVariablesPerCharacter: ForeverAHCountDB
 ## IconTexture: Interface\Minimap\Tracking\Auctioneer

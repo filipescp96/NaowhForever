@@ -24,6 +24,8 @@ local BUTTON_W, BUTTON_H = 120, 22
 local BUTTON_GAP, BUTTON_BOTTOM = 4, 8
 local PAGE_BUTTON_W, PAGE_BUTTON_H = 28, 20
 local PAGE_BUTTON_GAP, PAGE_EDGE = 4, 8
+local SCAN_BUTTON_W = 92
+local PAGER_W = 118
 local PRICE_SORT = { { sortOrder = Enum.AuctionHouseSortOrder.Price, reverseSort = false } }
 local EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "PLAYER_MONEY", "ITEM_DATA_LOAD_RESULT",
     "ITEM_SEARCH_RESULTS_UPDATED", "COMMODITY_SEARCH_RESULTS_UPDATED", "AUCTION_HOUSE_PURCHASE_COMPLETED",
@@ -37,6 +39,8 @@ local TEXT_NONE_LISTED = ns.L("none listed")
 local TEXT_SCAN = ns.L("scan ")
 local TEXT_NOT_LISTED = ns.L("not listed")
 local TEXT_NO_SCAN = ns.L("no scan yet")
+local TEXT_START_SCAN, TEXT_PAUSE_SCAN = ns.L("Scan"), ns.L("Pause")
+local TEXT_RESUME_SCAN = ns.L("Resume Scan")
 local TEXT_PATTERN = ns.L("the pattern")
 local TEXT_ACCEPT, TEXT_CANCEL, TEXT_CLOSE = ns.L("Accept"), ns.L("Cancel"), ns.L("Close")
 local TEXT_TRY_AGAIN, TEXT_SEARCH = ns.L("Try Again"), ns.L("Search")
@@ -66,8 +70,9 @@ local lookup, lookups, looked = nil, {}, {}
 local lookupWait
 local pending = false
 local page = 1
+local scanState = "idle"
 local events = CreateFrame("Frame")
-local Render, RenderConfirm
+local Render, RenderConfirm, ToggleScan
 
 local function On()
     return S.Get("enabled") and S.Get("searchFavoritesAH")
@@ -115,9 +120,14 @@ local function BuyClick(row)
 end
 
 local function NextLookup()
+    if scanState ~= "scanning" then return end
     if lookup or lookupWait or (buy and (buy.state == "searching" or buy.state == "placing")) then return end
     local item = table.remove(lookups, 1)
-    if not item then return end
+    if not item then
+        scanState = "done"
+        if Render then Render() end
+        return
+    end
     local key = C_AuctionHouse.MakeItemKey(item)
     local gen = (looked.gen or 0) + 1
     looked.gen = gen
@@ -267,10 +277,6 @@ local function PriceNote(row, e, scanned)
         row.note:SetText(now and Text.Short(now) or TEXT_NONE_LISTED)
     else
         row.note:SetText(e.price and (TEXT_SCAN .. Text.Short(e.price)) or scanned and TEXT_NOT_LISTED or TEXT_NO_SCAN)
-        if not looked[e.item] then
-            looked[e.item] = true
-            lookups[#lookups + 1] = e.item
-        end
     end
     local c = now and T.fg or T.muted
     row.note:SetTextColor(c.r, c.g, c.b)
@@ -305,7 +311,7 @@ local function BuildPager()
     if market.pager then return end
     local pager = CreateFrame("Frame", nil, market)
     pager:SetPoint("BOTTOMRIGHT", -PAGE_EDGE, PAGE_EDGE)
-    pager:SetSize(118, PAGE_BUTTON_H)
+    pager:SetSize(PAGER_W, PAGE_BUTTON_H)
     pager.next = ns.Button(pager, ">", PAGE_BUTTON_W, PAGE_BUTTON_H, function() ChangePage(1) end)
     pager.next:SetPoint("RIGHT")
     pager.previous = ns.Button(pager, "<", PAGE_BUTTON_W, PAGE_BUTTON_H, function() ChangePage(-1) end)
@@ -314,8 +320,16 @@ local function BuildPager()
     pager.label:SetPoint("RIGHT", pager.previous, "LEFT", -PAGE_BUTTON_GAP, 0)
     pager.label:SetJustifyH("RIGHT")
     market.pager = pager
+    market.scan = ns.Button(market, TEXT_START_SCAN, SCAN_BUTTON_W, PAGE_BUTTON_H, function() ToggleScan() end)
+    market.scan:SetPoint("BOTTOMRIGHT", market, "BOTTOMRIGHT", -(PAGE_EDGE + PAGER_W + PAGE_BUTTON_GAP), PAGE_EDGE)
     market:EnableMouseWheel(true)
     market:HookScript("OnMouseWheel", function(_, delta) ChangePage(delta > 0 and -1 or 1) end)
+end
+
+local function UpdateScanButton()
+    local text = scanState == "scanning" and TEXT_PAUSE_SCAN
+        or scanState == "paused" and TEXT_RESUME_SCAN or TEXT_START_SCAN
+    ns.SetButtonText(market.scan, text)
 end
 
 local function UpdatePager(pages)
@@ -343,6 +357,24 @@ local function QueueAllLookups(list)
     return remaining
 end
 
+ToggleScan = function()
+    if scanState == "scanning" then
+        scanState = "paused"
+        return Render()
+    end
+    local list = Patterns.List()
+    if scanState ~= "paused" then
+        lookup, lookupWait = nil, nil
+        wipe(live)
+        wipe(lookups)
+        wipe(looked)
+    end
+    scanState = "scanning"
+    QueueAllLookups(list)
+    Render()
+    NextLookup()
+end
+
 Render = function()
     local ah = _G.AuctionHouseFrame
     if not (On() and ah and ah:IsShown()) then return market and market:Hide() end
@@ -350,16 +382,13 @@ Render = function()
     if #list == 0 then return market and market:Hide() end
     if not market then market = Popup.New(TEXT_TITLE) end
     if market.dismissed then return end
-    local remaining = QueueAllLookups(list)
-    local display, found = {}, 0
+    if scanState == "scanning" then QueueAllLookups(list) end
+    local display, found, remaining = {}, 0, 0
     for _, e in ipairs(list) do
         -- A completed lookup with no buyout is omitted instead of consuming a row.
         if live[e.item] ~= false then display[#display + 1] = e end
         if live[e.item] then found = found + 1 end
-    end
-    if #display == 0 and remaining == 0 then
-        market:Hide()
-        return
+        if live[e.item] == nil then remaining = remaining + 1 end
     end
     local pages = math.max(1, math.ceil(#display / MAX_ROWS))
     page = math.max(1, math.min(page, pages))
@@ -367,17 +396,22 @@ Render = function()
     local shown = math.min(MAX_ROWS, math.max(0, #display - first + 1))
     local scanned = ns.AuctionScanTime and ns.AuctionScanTime()
     for row = 1, shown do FillRow(row, display[first + row - 1], scanned) end
-    Popup.Fit(market, shown, pages > 1 or remaining > 0)
-    if remaining > 0 then
+    Popup.Fit(market, shown, true)
+    if scanState == "scanning" then
         market.note:SetText(("%d available, scanning %d"):format(found, remaining))
+    elseif scanState == "paused" then
+        market.note:SetText(("%d available, %d remaining"):format(found, remaining))
+    elseif scanState == "idle" then
+        market.note:SetText(("%d patterns ready"):format(#list))
     else
         market.note:SetText(("%d available"):format(found))
     end
     UpdatePager(pages)
+    UpdateScanButton()
     market:ClearAllPoints()
     market:SetPoint("TOPLEFT", ah, "TOPRIGHT", PANEL_GAP, 0)
     market:Show()
-    NextLookup()
+    if scanState == "scanning" then NextLookup() end
 end
 
 local function Flush()
@@ -393,6 +427,8 @@ end
 
 local function Closed()
     buy, lookup = nil, nil
+    lookupWait = nil
+    scanState = "idle"
     page = 1
     wipe(live)
     wipe(lookups)
@@ -431,6 +467,11 @@ end
 local function OnEvent(_, event, name, loaded)
     if event == "AUCTION_HOUSE_SHOW" then
         page = 1
+        scanState = "idle"
+        lookup, lookupWait = nil, nil
+        wipe(live)
+        wipe(lookups)
+        wipe(looked)
         if market then market.dismissed = nil end
     elseif event == "AUCTION_HOUSE_CLOSED" then
         return Closed()

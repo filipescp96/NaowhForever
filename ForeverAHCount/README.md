@@ -35,7 +35,7 @@ The markers update when a merchant or trainer refreshes, when a recipe is learne
 
 ## Favorite Patterns paging
 
-Naowh Forever's **Favorite Patterns** Auction House panel scans the complete favorite-pattern list instead of stopping at the first visible rows. Already-learned recipes stay excluded, and patterns confirmed to have no active buyout are removed from the panel. Available and still-scanning entries use pages of eight rows, navigable with the `<` and `>` buttons or the mouse wheel while hovering the panel.
+Naowh Forever's **Favorite Patterns** Auction House panel can scan the complete favorite-pattern list instead of stopping at the first visible rows. It opens idle so no market searches are sent until **Scan** is pressed. The button becomes **Pause** while scanning and **Resume Scan** while paused; pausing preserves completed results and the remaining queue. Already-learned recipes stay excluded, and patterns confirmed to have no active buyout are removed from the panel. Available and unresolved entries use pages of eight rows, navigable with the `<` and `>` buttons or the mouse wheel while hovering the panel.
 
 ## Scrollable Shopping List
 
