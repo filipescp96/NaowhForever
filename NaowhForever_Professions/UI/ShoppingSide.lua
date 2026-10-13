@@ -1,4 +1,4 @@
--- ShoppingSide.lua: the shopping list in the profession window: its column on the right, and Add to List under a recipe.
+-- ShoppingSide.lua: the docked crafting queue, standalone shopping list, and recipe queue controls.
 local ns = _G.NaowhForever
 
 local T = ns.THEME
@@ -30,18 +30,18 @@ local SECTION_GAP = 8
 local ROW_X = 8
 local TOTAL_X, TOTAL_BOTTOM, TOTAL_RIGHT = 10, 16, 100
 local CLEAR_W, CLEAR_EDGE = 80, 10
+local SHOP_OPEN_W = 112
+local SHOP_MIN_H, SHOP_MAX_H = 160, 420
+local SHOP_CLOSE, SHOP_CLOSE_EDGE = 20, 7
 local SMALL_BUTTON = 16
 local STEP_GAP, MINUS_GAP = 6, 2
 local MAKE_W, KEEP_W = 40, 34
-local ADD_W = 90
 local ADD_QUEUE_W = 142
-local ADD_BUTTON_GAP = 6
 local ADD_DROP = 4
 local ADD_OVERHANG = 4
 local TEXT_TITLE = ns.L("Shopping List")
-local TEXT_HINT = ns.L("Choose a recipe, set how many crafts and click Add to List: its materials "
-    .. "land here. At the auction house the list shows beside it, to check the prices and "
-    .. "buy it all.")
+local TEXT_HINT = ns.L("Choose a recipe, set how many crafts and click Add to Crafting Queue: "
+    .. "its missing auction-house materials land here, ready to check and buy.")
 local TEXT_CRAFTS, TEXT_MATERIALS, TEXT_MADE = ns.L("Crafts"), ns.L("Materials"), ns.L("Make First")
 local TEXT_CLEAR = ns.L("Clear")
 local TEXT_ROW = "%dx %s"
@@ -53,13 +53,12 @@ local TEXT_PARTS_BOUGHT = ns.L("parts bought")
 local TEXT_SAVES = ns.L("saves ~")
 local TEXT_NO_AH_PRICE = ns.L("no AH price")
 local TEXT_UNPRICED = ns.L("unpriced")
-local TEXT_ADD = ns.L("Add to List")
 local TEXT_QUEUE_TITLE = ns.L("Crafting Queue")
+local TEXT_OPEN_SHOP = ns.L("Shopping List")
 local TEXT_PREREQUISITES = ns.L("Pre-requisite Crafts")
 local TEXT_QUEUE_CRAFTS = ns.L("Crafts")
 local TEXT_QUEUE_EMPTY = ns.L("Crafts with purchased materials or crafts you add manually appear here.")
 local TEXT_ADD_QUEUE = ns.L("Add to Crafting Queue")
-local TEXT_ADD_MISSING = ns.L("Add Missing Mats to Shopping List")
 local TEXT_START_QUEUE = ns.L("Start Queue")
 local TEXT_RUNNING = ns.L("Crafting...")
 local TEXT_CRAFT_NEXT = ns.L("Craft Next")
@@ -73,19 +72,14 @@ local TIP_MORE, TIP_MORE_HELP = ns.L("One More"), ns.L("Adds the materials for o
 local TIP_FEWER, TIP_FEWER_HELP = ns.L("One Fewer"), ns.L("Takes the materials for one craft off the list.")
 local TIP_MAKE, TIP_MAKE_HELP = ns.L("Make It"), ns.L("Buys its cheaper parts instead, to make it yourself.")
 local TIP_KEEP, TIP_KEEP_HELP = ns.L("Buy It"), ns.L("Buys it as it is instead of its parts.")
-local TIP_ADD = ns.L("Add to Shopping List")
-local TIP_ADD_HELP = ns.L("Puts the materials for that many crafts on your "
-    .. "shopping list: every checked reagent that is not cheaper from a vendor, whatever is in your "
-    .. "bags. Uncheck a reagent to leave it out. At the auction house the list shows beside "
-    .. "it, to check the prices and buy it all.")
-local TIP_CRAFTS, TIP_CRAFTS_HELP = ns.L("Crafts"), ns.L("How many crafts Add to List adds the materials for.")
+local TIP_CRAFTS, TIP_CRAFTS_HELP = ns.L("Crafts"), ns.L("How many crafts Add to Crafting Queue adds.")
 local TIP_ADD_QUEUE = ns.L("Add to Crafting Queue")
-local TIP_ADD_QUEUE_HELP = ns.L("Adds this recipe and its cheaper prerequisite crafts to the crafting queue.")
+local TIP_ADD_QUEUE_HELP = ns.L("Adds this recipe and its cheaper prerequisite crafts to the crafting queue, "
+    .. "then puts its missing auction-house materials on the shopping list.")
 local TIP_QUEUE_MISSING = ns.L("Missing Materials")
-local TIP_ADD_MISSING_HELP = ns.L("Adds missing auction-house materials for queued crafts to the shopping list. "
-    .. "Vendor materials stay out when the vendor price is cheaper.")
 local TIP_START_QUEUE_HELP = ns.L("Start Queue prepares the first ready prerequisite or craft. "
     .. "Then click Craft Next once for each prepared batch, as required by Blizzard; entries with missing materials are skipped.")
+local TIP_OPEN_SHOP_HELP = ns.L("Shows the standalone shopping list window.")
 
 local side
 local crafts, craftPool, madeList, madePool = {}, {}, {}, {}
@@ -146,20 +140,53 @@ local function ScrollWheel(scroll, delta)
     scroll:SetVerticalScroll(value)
 end
 
+local function ShowShop()
+    if not (side and side.shop) then return end
+    side.shop.dismissed = nil
+    side.shop:Show()
+end
+
+local function HideShop()
+    if not (side and side.shop) then return end
+    side.shop.dismissed = true
+    side.shop:Hide()
+end
+
+local function OnShopDragStart(self)
+    if InCombatLockdown and InCombatLockdown() then return end
+    local x, y = self:GetLeft(), self:GetTop()
+    self:ClearAllPoints()
+    self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
+    self:StartMoving()
+end
+
+local function OnShopDragStop(self)
+    self:StopMovingOrSizing()
+end
+
 local function BuildSide(win)
     side = CreateFrame("Frame", nil, win.mid)
     side:SetPoint("TOPLEFT", win.mid, "TOPRIGHT", SIDE_GAP, 0)
     side:SetPoint("BOTTOMLEFT", win.mid, "BOTTOMRIGHT", SIDE_GAP, 0)
     side:SetWidth(SIDE_W)
-    local shop = CreateFrame("Frame", nil, side)
-    shop:SetPoint("TOPLEFT")
-    shop:SetPoint("TOPRIGHT")
-    shop:SetPoint("BOTTOM", side, "CENTER", 0, 4)
-    ns.Solid(shop, "BACKGROUND", T.panel, Style.PANEL_ALPHA):SetAllPoints()
+    local shop = CreateFrame("Frame", nil, UIParent)
+    shop:SetSize(SIDE_W, SHOP_MIN_H)
+    shop:SetPoint("TOPLEFT", side, "TOPRIGHT", SIDE_GAP, 0)
+    shop:SetFrameStrata("DIALOG")
+    shop:SetClampedToScreen(true)
+    shop:SetMovable(true)
+    shop:EnableMouse(true)
+    shop:RegisterForDrag("LeftButton")
+    shop:SetScript("OnDragStart", OnShopDragStart)
+    shop:SetScript("OnDragStop", OnShopDragStop)
+    ns.Solid(shop, "BACKGROUND", T.bg, Style.WINDOW_ALPHA):SetAllPoints()
+    ns.Border(shop, Style.BORDER_RGB)
     side.shop = shop
     side.title = ns.Font(shop, Style.FONT_HEAD, nil, T.accent)
     side.title:SetPoint("TOPLEFT", TITLE_X, -TITLE_DROP)
     side.title:SetText(TEXT_TITLE)
+    shop.close = ns.Button(shop, "X", SHOP_CLOSE, SHOP_CLOSE, HideShop)
+    shop.close:SetPoint("TOPRIGHT", -SHOP_CLOSE_EDGE, -SHOP_CLOSE_EDGE)
 
     -- Intentionally use a bare ScrollFrame. Blizzard's scrollbar template is wider than
     -- this compact Naowh side panel and places its arrows/thumb outside the window.
@@ -193,15 +220,14 @@ local function BuildSide(win)
     ns.Tooltip(side.clear, TEXT_CLEAR, TIP_CLEAR_HELP)
 
     local queue = CreateFrame("Frame", nil, side)
-    queue:SetPoint("TOPLEFT", shop, "BOTTOMLEFT", 0, -SIDE_GAP)
-    queue:SetPoint("BOTTOMRIGHT")
+    queue:SetAllPoints()
     ns.Solid(queue, "BACKGROUND", T.panel, Style.PANEL_ALPHA):SetAllPoints()
     queue.title = ns.Font(queue, Style.FONT_HEAD, nil, T.accent)
     queue.title:SetPoint("TOPLEFT", TITLE_X, -TITLE_DROP)
     queue.title:SetText(TEXT_QUEUE_TITLE)
     queue.scroll = CreateFrame("ScrollFrame", nil, queue)
     queue.scroll:SetPoint("TOPLEFT", 0, -LIST_DROP)
-    queue.scroll:SetPoint("BOTTOMRIGHT", -2, 72)
+    queue.scroll:SetPoint("BOTTOMRIGHT", -2, LIST_BOTTOM)
     queue.scroll:EnableMouseWheel(true)
     queue.scroll:SetScript("OnMouseWheel", ScrollWheel)
     queue.content = CreateFrame("Frame", nil, queue.scroll)
@@ -222,10 +248,11 @@ local function BuildSide(win)
     queue.start = ns.Button(queue, TEXT_START_QUEUE, 94, Style.BUTTON_H, Queue.Click)
     queue.start:SetPoint("BOTTOMRIGHT", -CLEAR_EDGE, CLEAR_EDGE)
     ns.Tooltip(queue.start, TEXT_START_QUEUE, TIP_START_QUEUE_HELP)
-    queue.missing = ns.Button(queue, TEXT_ADD_MISSING, SIDE_W - CLEAR_EDGE * 2, Style.BUTTON_H, Queue.AddMissing)
-    queue.missing:SetPoint("BOTTOMRIGHT", -CLEAR_EDGE, CLEAR_EDGE + Style.BUTTON_H + 6)
-    ns.Tooltip(queue.missing, TEXT_ADD_MISSING, TIP_ADD_MISSING_HELP)
+    queue.shop = ns.Button(queue, TEXT_OPEN_SHOP, SHOP_OPEN_W, Style.BUTTON_H, ShowShop)
+    queue.shop:SetPoint("BOTTOMLEFT", CLEAR_EDGE, CLEAR_EDGE)
+    ns.Tooltip(queue.shop, TEXT_TITLE, TIP_OPEN_SHOP_HELP)
     side.queue = queue
+    shop:Hide()
     side:Hide()
 end
 
@@ -493,6 +520,7 @@ local function DrawQueueSection(q, prerequisite, y)
 end
 
 local function RenderQueue()
+    if not (side and side.queue) then return end
     local q = side.queue
     local y, prerequisites = DrawQueueSection(q, true, LIST_TOP)
     local craftsCount
@@ -508,7 +536,6 @@ local function RenderQueue()
     ns.SetButtonText(q.start, Queue.Running() and (active and active.started and TEXT_RUNNING or TEXT_CRAFT_NEXT)
         or TEXT_START_QUEUE)
     Widgets.EnableButton(q.start, count > 0 and (not Queue.Running() or (active and not active.started)))
-    Widgets.EnableButton(q.missing, count > 0 and not Queue.Running())
 end
 
 local function RenderSide()
@@ -516,7 +543,12 @@ local function RenderSide()
     if P.Detail and P.Detail.UpdateShoppingCount then P.Detail.UpdateShoppingCount() end
     if P.List and P.List.UpdateShoppingMarkers then P.List.UpdateShoppingMarkers() end
     local api = ns.ProfWindowAPI
-    if not On() or (api and api.Linked()) then return side:Hide() end
+    if not On() then
+        side.shop:Hide()
+        return side:Hide()
+    end
+    RenderQueue()
+    if api and api.Linked() then return side:Hide() end
     local materials, made, plan = Shopping.Materials()
     SortedCrafts()
     side.hint:SetShown(#crafts == 0)
@@ -527,28 +559,29 @@ local function RenderSide()
     y = DrawMade(made, plan, y)
     local hasRows = #crafts > 0 or #materials > 0 or #madeList > 0
     side.scroll:SetShown(hasRows)
-    side.content:SetHeight(math.max(side.scroll:GetHeight(), -y + SECTION_GAP))
+    local contentHeight = -y + SECTION_GAP
+    side.shop:SetHeight(math.min(SHOP_MAX_H, math.max(SHOP_MIN_H,
+        LIST_DROP + contentHeight + LIST_BOTTOM)))
+    side.content:SetHeight(math.max(side.scroll:GetHeight(), contentHeight))
     if side.scroll.UpdateScrollChildRect then side.scroll:UpdateScrollChildRect() end
     local range = side.scroll:GetVerticalScrollRange() or 0
     if side.scroll:GetVerticalScroll() > range then side.scroll:SetVerticalScroll(range) end
     side.total:SetText(#materials > 0 and Shopping.Estimate(materials, TEXT_UNPRICED) or "")
     side.clear:SetShown(#crafts > 0)
-    RenderQueue()
     side:Show()
+    if not side.shop.dismissed then side.shop:Show() end
 end
 
 local function AddCrafts()
     return math.max(1, tonumber(addRow and addRow.qty:GetText() or "") or 1)
 end
 
-local function OnAdd()
-    local info = ns.ProfWindowAPI.SelectedInfo()
-    if info then Shopping.Add(info, AddCrafts()) end
-end
-
 local function OnQueueAdd()
     local info = ns.ProfWindowAPI.SelectedInfo()
-    if info then Queue.Add(info, AddCrafts()) end
+    if info then
+        Queue.AddWithShopping(info, AddCrafts())
+        ShowShop()
+    end
 end
 
 function ns.ShoppingListWide()
@@ -564,16 +597,13 @@ function ns.ShoppingListAttach(win)
     row.queue = ns.Button(row, TEXT_ADD_QUEUE, ADD_QUEUE_W, Style.BUTTON_H, OnQueueAdd)
     row.queue:SetPoint("RIGHT")
     ns.Tooltip(row.queue, TIP_ADD_QUEUE, TIP_ADD_QUEUE_HELP)
-    row.add = ns.Button(row, TEXT_ADD, ADD_W, Style.BUTTON_H, OnAdd)
-    row.add:SetPoint("RIGHT", row.queue, "LEFT", -ADD_BUTTON_GAP, 0)
-    ns.Tooltip(row.add, TIP_ADD, TIP_ADD_HELP)
     local qty = Widgets.QtyBox(row)
     row.qty = qty
     local plus = ns.Button(row, "+", Style.STEP_W, Style.BUTTON_H, function()
         qty:SetText(tostring(math.min(C.MAX_CRAFTS, AddCrafts() + 1)))
     end)
     row.plus = plus
-    plus:SetPoint("RIGHT", row.add, "LEFT", -Style.QTY_GAP, 0)
+    plus:SetPoint("RIGHT", row.queue, "LEFT", -Style.QTY_GAP, 0)
     qty:SetPoint("RIGHT", plus, "LEFT", -Style.STEP_GAP, 0)
     local minus = ns.Button(row, "-", Style.STEP_W, Style.BUTTON_H, function()
         qty:SetText(tostring(math.max(1, AddCrafts() - 1)))
@@ -590,12 +620,6 @@ function ns.ShoppingListRender(info, last)
         addRecipe = info.recipeID
         addRow.qty:SetText("1")
     end
-    local shopping = Shopping.HasNeeds(info.recipeID)
-    addRow.add:SetShown(shopping)
-    if addRow.plus then
-        addRow.plus:ClearAllPoints()
-        addRow.plus:SetPoint("RIGHT", shopping and addRow.add or addRow.queue, "LEFT", -Style.QTY_GAP, 0)
-    end
     local buyRow = addRow:GetParent().buyRow
     addRow:ClearAllPoints()
     if buyRow and buyRow:IsShown() then
@@ -611,4 +635,7 @@ function Shopping.HideAdd()
 end
 
 Shopping.RenderSide = RenderSide
-Queue.Render = RenderSide
+Queue.Render = function()
+    if P.List and P.List.UpdateShoppingMarkers then P.List.UpdateShoppingMarkers() end
+    RenderQueue()
+end

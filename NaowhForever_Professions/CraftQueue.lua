@@ -21,6 +21,7 @@ local running, active
 local runID = 0
 local skipped = {}
 local events = CreateFrame("Frame")
+local SyncShopping
 
 local function Mine()
     local account = ns.AccountSettings()
@@ -104,7 +105,7 @@ local function RequirementPlan(recipeID, count, bucket, inventory, visiting, dep
     visiting[recipeID] = nil
 end
 
-local function Add(info, count, prerequisite)
+local function Add(info, count, prerequisite, defer)
     if not (info and info.recipeID) then return end
     local mine = Mine()
     count = math.max(1, math.min(C.MAX_CRAFTS, tonumber(count) or 1))
@@ -116,7 +117,7 @@ local function Add(info, count, prerequisite)
         RequirementPlan(info.recipeID, count, mine.prerequisites, inventory, {}, 0)
     end
     AddEntry(prerequisite and mine.prerequisites or mine.crafts, info.recipeID, count, info)
-    Redraw()
+    if not defer then Redraw() end
 end
 
 local function Bucket(prerequisite)
@@ -129,7 +130,7 @@ local function Step(recipeID, prerequisite, by)
     local entry = bucket[recipeID]
     if not entry then return end
     entry.count = math.max(1, math.min(C.MAX_CRAFTS, (tonumber(entry.count) or 1) + by))
-    Redraw()
+    SyncShopping()
 end
 
 local function Remove(recipeID, prerequisite)
@@ -139,7 +140,7 @@ local function Remove(recipeID, prerequisite)
         runID = runID + 1
         events:UnregisterAllEvents()
     end
-    Redraw()
+    SyncShopping()
 end
 
 local function Requirements(entry)
@@ -392,32 +393,49 @@ local function OnPurchased()
     return ImportShopping()
 end
 
-local function AddMissing()
-    local inventory = {}
-    for _, entry in ipairs(Ordered()) do
-        for itemID in pairs(entry.need or EMPTY) do
-            if inventory[itemID] == nil then inventory[itemID] = R.ItemCount(itemID) end
+SyncShopping = function()
+    local mine, list = Mine(), Shopping.List()
+    local legacyCounts = {}
+    for recipeID, craft in pairs(list) do
+        if craft.fromQueue or mine.crafts[recipeID] then
+            if not craft.fromQueue then legacyCounts[recipeID] = tonumber(craft.count) or 0 end
+            list[recipeID] = nil
         end
     end
-    for _, entry in ipairs(Ordered()) do
-        local got, needsShopping = {}, false
-        local owned = R.Owned()
+
+    local entries = {}
+    for _, entry in pairs(mine.crafts) do entries[#entries + 1] = entry end
+    table.sort(entries, function(a, b) return (a.name or "") < (b.name or "") end)
+
+    local inventory = {}
+    local purchased = Shopping.Have()
+    for _, entry in ipairs(entries) do
+        for itemID in pairs(entry.need or EMPTY) do
+            if inventory[itemID] == nil then
+                inventory[itemID] = math.max(0, R.ItemCount(itemID) - (purchased[itemID] or 0))
+            end
+        end
+    end
+    for _, entry in ipairs(entries) do
+        local count = math.max(tonumber(entry.count) or 1, legacyCounts[entry.recipeID] or 0)
+        local got = {}
         for itemID, per in pairs(entry.need or EMPTY) do
-            local want = per * entry.count
+            local want = per * count
             local have = math.min(want, inventory[itemID] or 0)
             inventory[itemID] = (inventory[itemID] or 0) - have
             if have > 0 then got[itemID] = have end
-            if have < want and not owned[itemID] and Shopping.ShouldBuyAH(itemID) then needsShopping = true end
         end
-        if needsShopping then
-            local info = { recipeID = entry.recipeID, name = entry.name, icon = entry.icon }
-            Shopping.Add(info, entry.count, got, true, true)
-        end
-        if entry.output then
-            inventory[entry.output] = (inventory[entry.output] or 0) + entry.count * (entry.made or 1)
-        end
+        local info = { recipeID = entry.recipeID, name = entry.name, icon = entry.icon }
+        Shopping.Add(info, count, next(got) and got or nil, true, true, true)
     end
+    Shopping.Trim()
+    Redraw()
     Shopping.Redraw()
+end
+
+local function AddWithShopping(info, count)
+    Add(info, count, nil, true)
+    SyncShopping()
 end
 
 events:SetScript("OnEvent", OnCraftEvent)
@@ -425,6 +443,7 @@ if hooksecurefunc then hooksecurefunc(C_TradeSkillUI, "CraftRecipe", OnCraftRequ
 
 Queue.List = Mine
 Queue.Add = Add
+Queue.AddWithShopping = AddWithShopping
 Queue.Step = Step
 Queue.Remove = Remove
 Queue.Requirements = Requirements
@@ -435,4 +454,3 @@ Queue.Active = function() return active end
 Queue.MarkSkipped = MarkSkipped
 Queue.ResetSkipped = ResetSkipped
 Queue.OnPurchased = OnPurchased
-Queue.AddMissing = AddMissing

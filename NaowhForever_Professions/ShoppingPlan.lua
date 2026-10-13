@@ -338,7 +338,7 @@ local function OnChange(fn)
     listeners[#listeners + 1] = fn
 end
 
-local function Add(info, crafts, got, quiet, fromQueue)
+local function Add(info, crafts, got, quiet, fromQueue, defer)
     local need = Needs(info.recipeID)
     if next(need) == nil then return false end
     local list = List()
@@ -364,7 +364,7 @@ local function Add(info, crafts, got, quiet, fromQueue)
         ns.Print(TEXT_ADDED:format(info.name, crafts, crafts == 1 and TEXT_CRAFT or TEXT_CRAFTS,
             table.concat(parts, ", ")))
     end
-    Redraw()
+    if not defer then Redraw() end
     return true
 end
 
