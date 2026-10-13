@@ -199,6 +199,8 @@ Modals and windows
   builds (previews, lazy journal reads) never run off-screen. A profile import can change any tab, so
   every cached tab is invalidated, not only the one on show.
 - Window scale is set from a dropdown, not a slider: the control sits inside the frame it resizes.
+- Sidebar rows are 28 high (`NAV_ROW`) so every module fits the default 852-high window
+  (test-navigation.lua).
 - The options window and a module's window size through `Parts.Resizable`; letting go of the grip
   (`onReleased`) fits the page to the new width and redraws it only when that width changed.
 
@@ -249,7 +251,11 @@ Widgets
   (`ns.Sunken`): a lit edge one pixel outside its black one, along the bottom and right. A switch
   is a check box with the game's own tick. A button is red in a gold rim, brighter under the mouse
   and turned over while pressed; its outer edge still marks a picked button, and its `_rim` and
-  `_shine` are kept so the Flight Timer can fade them with the rest.
+  `_shine` are kept so the Flight Timer can fade them with the rest. A button hidden while pressed
+  never gets its mouse-up, so hiding it turns its art back up. `ns.AccentBorder` leaves the game's
+  button art alone: the game marks no button as the main one.
+- The Classic+ slider groove's edges are frames drawn over the track's own textures, so the gem
+  sits on a frame `KNOB_RAISE` levels above the groove.
 - `UI.KeyField` takes a binding command, or functions for its action and label, for one field
   pointed at another binding each time its panel opens; its `_refreshValue` shows the new one.
 

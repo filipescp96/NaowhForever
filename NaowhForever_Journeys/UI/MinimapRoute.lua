@@ -28,7 +28,6 @@ local function On()
     return Jy.On() and S.Get("minimapRoute")
 end
 
--- A world offset (yards north, yards west) as minimap pixels, the minimap turned by facing when it rotates.
 function Math.Project(north, west, facing, pixelsPerYard)
     local east = -west
     local x = east * cos(facing) + north * sin(facing)
@@ -36,7 +35,6 @@ function Math.Project(north, west, facing, pixelsPerYard)
     return x * pixelsPerYard, y * pixelsPerYard
 end
 
--- The part of the segment a to b inside the circle of radius r about the origin: ax, ay, bx, by or nil.
 function Math.Clip(ax, ay, bx, by, r)
     local dx, dy = bx - ax, by - ay
     local a = dx * dx + dy * dy

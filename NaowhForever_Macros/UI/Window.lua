@@ -143,7 +143,6 @@ end
 
 local function OpacityGet() return math.floor((S.Get("windowAlpha") or 1) * PERCENT + ROUND) end
 local function OpacitySet(value) S.Set("windowAlpha", value / PERCENT) end
-ns.MacroOpacityGet, ns.MacroOpacitySet = OpacityGet, OpacitySet
 
 local function ExportAll()
     local all, smart = {}, {}
@@ -288,7 +287,6 @@ local function SettingChanged(key)
 end
 
 F.Render = Render
-F.SetTab = SetTab
 M.Redraw = Render
 
 function ns.OpenMacroWindow(view)

@@ -29,7 +29,7 @@ local ROW_BUTTON_W, ROW_BUTTON_H = 90, 24
 local PLAY_SIZE, PLAY_GAP, PLAY_ICON = 24, 4, 14
 local SLIDER_TRACK_W, SLIDER_TRACK_H, SLIDER_THUMB = 120, 4, 12
 local KNOB_EDGE_SUBLEVEL = -1
-local KNOB_RAISE = 2           -- the groove's edge and bevel frames are one level above it
+local KNOB_RAISE = 2
 local SLIDER_BOX_W, SLIDER_BOX_H, SLIDER_MAX = 40, 22, 100
 local PALETTE_SIZE, PALETTE_GAP, PALETTE_EDGE_ALPHA = 22, 4, 0.6
 local DIM_ALPHA = 0.3
@@ -41,17 +41,14 @@ local HEADER_TEXT_Y = 8
 local WIDE_BUTTON_W, WIDE_BUTTON_H = 200, 26
 local KEY_FIELD_W, KEY_FIELD_H, COMBAT_DIM = 150, 26, 0.4
 local SWATCH_W, SWATCH_H = 40, 20
-local BAND_ALPHA = 0.35
 local SCROLL_STEP = 60
 local GLIDE_RATE = 14
 local GLIDE_DONE = 0.5
 local TIP = { w = 240, pad = 8, size = 10, spacing = 3, gap = 4, cursorX = 16, cursorY = -12, alpha = 0.98 }
 local TOGGLE = { w = 40, h = 20, knobShare = 0.7, insetShare = 0.15, minInset = 2 }
-local FEATURE = { textSize = 16, textX = 30, arrow = 14, arrowX = 4, hitRoom = 120, hitRaise = 3 }
 local NOTE = { size = 12, inset = 20, top = 12, room = 24, fallbackW = 960 }
 local SCROLL = { slimW = 6, slimGap = 6, trackAlpha = 0.6, thumbAlpha = 0.8, minThumb = 24, sync = 0.5 }
 local SHARE_DEPTH = 4
-local SOUND_DROPDOWN_W = 200
 local NO_SOUND = "none"
 local SHARED_MEDIA_PREFIX = "sm:"
 local SHARED_MEDIA_NONE = "None"
@@ -392,7 +389,6 @@ function UI.BuildSliderCore(parent, trackW, trackH, thumbSz, inputW, inputH, inp
         local top, bottom = St.CLASSIC_FILL_RGB[1], St.CLASSIC_FILL_RGB[2]
         fill:SetColorTexture(1, 1, 1, 1)
         fill:SetGradient("VERTICAL", CreateColor(bottom.r, bottom.g, bottom.b, 1), CreateColor(top.r, top.g, top.b, 1))
-        -- The groove's edges are frames, drawn over the track's own textures, so the gem gets a frame above them.
         local knob = CreateFrame("Frame", nil, track)
         knob:SetAllPoints()
         knob:SetFrameLevel(groove:GetFrameLevel() + KNOB_RAISE)
@@ -481,26 +477,12 @@ function UI.SetSliderRange(track, minV, maxV, step)
     track._minV, track._maxV, track._step = minV, maxV, step or 1
 end
 
-function UI.FormatPercent(v) return v .. "%" end
-function UI.FormatSeconds(v) return v .. "s" end
-
 local W = {}
 UI.Widgets = W
-
-local openFeatures = {}
-
-local function Collapsed(parent, frame, h)
-    if parent._nsuiCollapsed then
-        frame:Hide()
-        return frame, 0
-    end
-    return frame, h
-end
 
 function UI.BeginReusableRows(parent)
     parent._rowCache = parent._rowCache or {}
     parent._rowUses = {}
-    parent._nsuiRowCount = 0
     UI.rebindingRows = true
     for _, rows in pairs(parent._rowCache) do
         for _, row in ipairs(rows) do row:Hide() end
@@ -568,21 +550,6 @@ function UI.KeepDropdown(parent, key, width, values, order, get, set)
     dd:SetFrameLevel(parent:GetFrameLevel() + CONTROL_RAISE)
     dd._refreshLabel()
     return dd
-end
-
-function UI.KeepSlider(parent, key, trackW, trackH, thumbSz, inputW, inputH, inputFontSz,
-                       inputAlpha, minV, maxV, step, get, set)
-    local track = UI.Keep(parent, key, function(p)
-        local t = UI.BuildSliderCore(p, trackW, trackH, thumbSz, inputW, inputH, inputFontSz,
-            inputAlpha, minV, maxV, step, get, set)
-        t:HookScript("OnShow", function() t._valBox:Show() end)
-        t:HookScript("OnHide", function() t._valBox:Hide() end)
-        return t
-    end)
-    track._get, track._set = get, set
-    track._valBox:Show()
-    track._refreshValue()
-    return track, track._valBox
 end
 
 function UI.KeepButton(parent, key, text, w, h, onClick)
@@ -911,15 +878,13 @@ function W:DualRow(parent, yOffset, leftCfg, rightCfg)
         row._leftRegion._refresh(leftCfg)
         if rightCfg then row._rightRegion._refresh(rightCfg) end
         FitRegions(row, parent, rightCfg)
-        return Collapsed(parent, row, ROW_H)
+        return row, ROW_H
     end
     NewRowRegions(row, parent, leftCfg, rightCfg)
-    return Collapsed(parent, row, ROW_H)
+    return row, ROW_H
 end
 
 function W:SectionHeader(parent, text, yOffset)
-    parent._nsuiRowCount = 0
-    parent._nsuiCollapsed, parent._nsuiFeatureId = nil, nil
     local f = CachedRow(parent, "header:" .. text) or CreateFrame("Frame", nil, parent)
     PlaceRow(f, parent, yOffset, HEADER_H)
     if f._headerBuilt then return f, HEADER_H end
@@ -947,81 +912,6 @@ function W:SectionHeader(parent, text, yOffset)
     return f, HEADER_H
 end
 
-local function OnFeatureClick(hit)
-    openFeatures[hit._id] = not openFeatures[hit._id] or nil
-    UI:RefreshPage(true)
-end
-
-local function FeatureParts(row, cfg)
-    row._feature = true
-    row._leftRegion._label:SetFont(ns.UIFontPath(), cfg.type == "label" and LABEL_SIZE or FEATURE.textSize, "")
-    row._leftRegion._label:SetPoint("LEFT", row._leftRegion, "LEFT", FEATURE.textX, 0)
-    row.arrow = row:CreateTexture(nil, "ARTWORK")
-    row.arrow:SetTexture(CHEVRON)
-    row.arrow:SetSize(FEATURE.arrow, FEATURE.arrow)
-    row.arrow:SetPoint("LEFT", row, "LEFT", FEATURE.arrowX, 0)
-    row.arrow:SetVertexColor(T.muted.r, T.muted.g, T.muted.b, 1)
-    row.hit = CreateFrame("Button", nil, row)
-    row.hit:SetPoint("TOPLEFT")
-    row.hit:SetPoint("BOTTOMLEFT")
-    row.hit:SetPoint("RIGHT", row._leftRegion, "RIGHT", -FEATURE.hitRoom, 0)
-    row.hit:SetFrameLevel(row._leftRegion:GetFrameLevel() + FEATURE.hitRaise)
-    row.hit:SetScript("OnClick", OnFeatureClick)
-    row.hit:SetScript("OnEnter", function(hit)
-        row.arrow:SetVertexColor(T.fg.r, T.fg.g, T.fg.b, 1)
-        local tip = hit._cfg.tooltip
-        if tip then UI.ShowWidgetTooltip(hit, tip, CURSOR_TIP) end
-    end)
-    row.hit:SetScript("OnLeave", function()
-        row.arrow:SetVertexColor(T.muted.r, T.muted.g, T.muted.b, 1)
-        UI.HideWidgetTooltip()
-    end)
-end
-
-function W:Feature(parent, yOffset, cfg, key)
-    parent._nsuiCollapsed, parent._nsuiFeatureId = nil, nil
-    local collapsible = parent._collapsible == true
-    local id = collapsible and (parent._pageKey .. ":" .. (key or cfg.text)) or nil
-    if collapsible and cfg.type == "toggle" then
-        local set = cfg.setValue
-        cfg.setValue = function(v)
-            openFeatures[id] = v and true or nil
-            set(v)
-        end
-    end
-    local row = W:DualRow(parent, yOffset, cfg)
-    if not row._feature then FeatureParts(row, cfg) end
-    row.hit._id, row.hit._cfg = id, cfg
-    local closed = collapsible and not openFeatures[id]
-    row.hit:SetShown(collapsible)
-    row.arrow:SetShown(collapsible)
-    row.arrow:SetRotation(closed and 0 or CHEVRON_DOWN)
-    parent._nsuiCollapsed = closed or nil
-    parent._nsuiFeatureId = (parent._pageKey or "") .. ":" .. (key or cfg.text)
-    return row, ROW_H
-end
-
-function W:Disclosure(parent, yOffset, text, key)
-    local cfg = type(text) == "table" and text or { type = "label", text = text }
-    local parentId = parent._nsuiFeatureId
-    local nestedKey = (parentId or "") .. ":" .. key
-    local saved = { closed = parent._nsuiCollapsed, feature = parentId }
-    local row, h = self:Feature(parent, yOffset, cfg, nestedKey)
-    parent._nsuiDisclosure = saved
-    if saved.closed then row:Hide(); parent._nsuiCollapsed = true; h = 0 end
-    return row, h
-end
-
-function W:EndDisclosure(parent)
-    local saved = parent._nsuiDisclosure
-    parent._nsuiCollapsed, parent._nsuiFeatureId = saved.closed, saved.feature
-    parent._nsuiDisclosure = nil
-end
-
-function W:EndFeature(parent)
-    parent._nsuiCollapsed, parent._nsuiFeatureId = nil, nil
-end
-
 function W:Button(parent, text, yOffset, onClick)
     local row = CachedRow(parent, "button:" .. text) or CreateFrame("Frame", nil, parent)
     PlaceRow(row, parent, yOffset, ROW_H)
@@ -1030,7 +920,7 @@ function W:Button(parent, text, yOffset, onClick)
         row._btn = ns.Button(row, text, WIDE_BUTTON_W, WIDE_BUTTON_H, function() row._onClick() end)
         row._btn:SetPoint("LEFT", row, "LEFT", ROW_INSET, 0)
     end
-    return Collapsed(parent, row, ROW_H)
+    return row, ROW_H
 end
 
 local function KeyCombo(key)
@@ -1162,38 +1052,6 @@ function UI.BuildColorSwatchControl(parent, get, set, hasAlpha)
     return swatchBtn
 end
 
-local function NewColorRow(row, text, hasAlpha, count, banded)
-    if count % 2 == 1 or banded then
-        local band = ns.Solid(row, "BACKGROUND", T.panel, BAND_ALPHA)
-        band:SetAllPoints()
-        band:SetShown(count % 2 == 1)
-        row._band = band
-    end
-    local lbl = ns.Font(row, LABEL_SIZE, nil)
-    lbl:SetPoint("LEFT", row, "LEFT", ROW_INSET, 0)
-    lbl:SetText(ns.L(text))
-    local swatchBtn = UI.BuildColorSwatchControl(row,
-        function() return row._colorGet() end,
-        function(...) return row._colorSet(...) end, hasAlpha)
-    row._swatch = swatchBtn
-    swatchBtn:SetPoint("RIGHT", row, "RIGHT", -ROW_INSET, 0)
-end
-
-function W:ColorPicker(parent, text, yOffset, get, set, hasAlpha)
-    local row = CachedRow(parent, "color:" .. text) or CreateFrame("Frame", nil, parent)
-    row._colorGet, row._colorSet = get, set
-    PlaceRow(row, parent, yOffset, ROW_H)
-    local count = (parent._nsuiRowCount or 0) + 1
-    parent._nsuiRowCount = count
-    if row._swatch then
-        row._swatch._refreshValue()
-        if row._band then row._band:SetShown(count % 2 == 1) end
-        return Collapsed(parent, row, ROW_H)
-    end
-    NewColorRow(row, text, hasAlpha, count, parent._rowCache)
-    return Collapsed(parent, row, ROW_H)
-end
-
 function W:Note(parent, text, yOffset)
     local row = CachedRow(parent, "note")
     if row then
@@ -1215,7 +1073,7 @@ function W:Note(parent, text, yOffset)
     fs:SetText(ns.L(text))
     fs:Show()
     local h = math.ceil(fs:GetStringHeight()) + NOTE.room
-    return Collapsed(parent, fs, h)
+    return fs, h
 end
 
 local function OnPixel(scroll, value, target)
@@ -1414,27 +1272,10 @@ local function CopyPlain(v)
     return out
 end
 
-local function Shareable(defaults, k, v)
-    if type(k) ~= "string" then return false end
-    if k == "anchoredTo" then return type(v) == "table" and Plain(v, 0) end
-    local d = defaults[k]
-    if d == nil then return k:find("Pos$") ~= nil and type(v) == "table" and Plain(v, 0) end
-    if type(v) ~= type(d) then return false end
-    if type(d) == "table" then return next(d) ~= nil and Plain(v, 0) end
-    return true
-end
-
 local function SavedDefaults()
     local account = ns.AccountSettings()
     if type(account.moduleDefaults) ~= "table" then account.moduleDefaults = {} end
     return account.moduleDefaults
-end
-
-local function AllDefaults()
-    local all = {}
-    for key, defaults in pairs(SavedDefaults()) do all[key] = defaults end
-    for key, defaults in pairs(moduleDefaults) do all[key] = defaults end
-    return all
 end
 
 function ns.SaveModuleDefaults()
@@ -1448,41 +1289,8 @@ function ns.SaveModuleDefaults()
     end
 end
 
-local function ExportModule(out, key, defaults, t)
-    for k, v in pairs(t) do
-        if Shareable(defaults, k, v) then
-            out = out or {}
-            out[key] = out[key] or {}
-            out[key][k] = CopyPlain(v)
-        end
-    end
-    return out
-end
-
-function ns.ExportModuleSettings(root)
-    local out
-    for key, defaults in pairs(AllDefaults()) do
-        local t = root[key]
-        if type(t) == "table" then out = ExportModule(out, key, defaults, t) end
-    end
-    return out
-end
-
 function ns.ModuleDefaults(key)
     return moduleDefaults[key] or SavedDefaults()[key]
-end
-
-function ns.ImportModuleSettings(root, modules)
-    if type(root) ~= "table" or type(modules) ~= "table" then return end
-    for key, values in pairs(modules) do
-        local defaults = ns.ModuleDefaults(key)
-        if defaults and type(values) == "table" then
-            if type(root[key]) ~= "table" then root[key] = {} end
-            for k, v in pairs(values) do
-                if Shareable(defaults, k, v) then root[key][k] = CopyPlain(v) end
-            end
-        end
-    end
 end
 
 local function RegisterDefaults(key, defaults)
@@ -1543,15 +1351,6 @@ function UI.ModuleSettings(key, defaults)
     function S.Slider(k, text, min, max, step, tooltip, on)
         return Row({ type = "slider", text = text, tooltip = tooltip,
             min = min, max = max, step = step }, k, on)
-    end
-    function S.Dropdown(k, text, values, order, tooltip, on)
-        return Row({ type = "dropdown", text = text, tooltip = tooltip,
-            values = values, order = order }, k, on)
-    end
-    function S.SoundDropdown(k, text, values, order, tooltip, on, play)
-        play = play or UI.PlaySoundKey
-        return Row({ type = "dropdown", text = text, tooltip = tooltip, values = values, order = order,
-            width = SOUND_DROPDOWN_W, preview = play, setValue = function(v) S.Set(k, v); play(v) end }, k, on)
     end
     return S
 end

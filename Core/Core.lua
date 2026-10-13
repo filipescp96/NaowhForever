@@ -24,7 +24,6 @@ local OFFSCREEN = 0.9
 local BUTTON_TEXT_SIZE, BUTTON_REST_ALPHA = 12, 0.9
 local BUTTON_SHADOW = 1
 local SKIN_CLASSIC = "classic"
--- The Classic+ skin sets text as the game does: Friz Quadrata, and Arial Narrow for compact numbers.
 local FONT_NAOWH, FONT_CLASSIC, FONT_DATA = "Naowh", "Friz Quadrata TT", "Arial Narrow"
 local FONT_HEADING = FONT_CLASSIC
 local LOCALE_ADDON_PREFIX, ENGLISH = "NaowhForever_", "enUS"
@@ -87,7 +86,11 @@ if ns.LOCALE ~= ENGLISH then
     C_AddOns.LoadAddOn(LOCALE_ADDON_PREFIX .. ns.LOCALE)
 end
 
-local catalog = _G.NaowhForeverLocale or {}
+local catalog = {}
+for key, text in pairs(_G.NaowhForeverLocale or {}) do
+    if text ~= true then catalog[key] = text end
+end
+_G.NaowhForeverLocale = nil
 local translation = _G.NaowhForeverTranslation or {}
 function ns.L(key, ...)
     local text = translation[key]
@@ -451,9 +454,6 @@ if LSM then
 end
 
 ns.BLIZZARD_FONT = "__blizzard"
--- name is the font as requested (an LSM name or one of this file's FONT_* constants), path its
--- resolved file. The Cyrillic swap keys off the request, not the resolved path, so it still
--- applies if LSM's registration for Friz Quadrata ever changes.
 function ns.LocaleFont(name, path)
     if GLYPH_FONTS[ns.LOCALE] then return GLYPH_FONTS[ns.LOCALE] end
     if ns.LOCALE == "ruRU" and name == FONT_CLASSIC then return FRIZ_CYRILLIC end
@@ -486,13 +486,11 @@ function ns.HeadingFontPath(classic)
     return FontPath(FONT_HEADING) or ns.UIFontPath()
 end
 
--- Compact numbers (a slider's value): Arial Narrow on the Classic+ skin, else the Addon Font.
 function ns.DataFontPath()
     if not ns.classicSkin or ns.AccountSettings().uiFont then return ns.UIFontPath() end
     return FontPath(FONT_DATA) or ns.UIFontPath()
 end
 
--- The title plate is the one place the Classic+ skin keeps the Naowh face.
 function ns.TitleFontPath()
     return ns.LocaleFont(FONT_NAOWH, NAOWH_FONT)
 end
@@ -672,14 +670,12 @@ local function ArtPiece(btn, coords)
     return piece
 end
 
--- A button narrower than both caps would leave the middle no room.
 local function FitCaps(btn, width)
     local cap = math.min(ns.Shared.Style.CLASSIC_BUTTON_CAP, width / 2)
     btn._art[1]:SetWidth(cap)
     btn._art[3]:SetWidth(cap)
 end
 
--- The game's panel button art on frame, in three pieces; the onboarding's Classic+ preview uses it too.
 function ns.GameButtonArt(frame)
     local St = ns.Shared.Style
     local coords = St.CLASSIC_BUTTON_COORDS
@@ -693,8 +689,6 @@ function ns.GameButtonArt(frame)
     SetArt(frame, St.CLASSIC_BUTTON_ART.up)
 end
 
--- Callers colour the label themselves (a picked choice, a quiz answer), so hover lends it white and
--- gives back whatever it was.
 local function Unlight(btn)
     local c = btn._litFrom
     if not c then return end
@@ -702,7 +696,6 @@ local function Unlight(btn)
     btn.label:SetTextColor(c[1], c[2], c[3], c[4])
 end
 
--- The edge only shows for a picked button, in the colour its caller gives it.
 local function ClassicButton(btn, bg, border, lbl)
     local T, St = ns.THEME, ns.Shared.Style
     local art, coords = St.CLASSIC_BUTTON_ART, St.CLASSIC_BUTTON_COORDS
@@ -732,7 +725,6 @@ local function ClassicButton(btn, bg, border, lbl)
     btn:SetScript("OnMouseUp", function(self)
         if self:IsEnabled() then SetArt(self, art.up) end
     end)
-    -- Hidden mid-press, the release never reaches it.
     btn:HookScript("OnHide", function(self)
         if self:IsEnabled() then SetArt(self, art.up) end
     end)
@@ -777,7 +769,6 @@ function ns.Button(parent, text, w, h, onClick, template)
     return btn
 end
 
--- The game marks no button as the main one.
 function ns.AccentBorder(frame)
     if not (frame and frame._border) or frame._art then return frame end
     local accent = ns.THEME.accent
@@ -1389,11 +1380,6 @@ function ns.ApplySpecProfile(specID)
     if not want or type(sv.profiles[want]) ~= "table" then return false end
     if sv.charActive[CharKey()] == want then return false end
     return (ns.SwitchProfile(want)) and true or false
-end
-
-function ns.ProfileSettings(name)
-    local p = DB().profiles[name]
-    return type(p) == "table" and type(p.tankReminder) == "table" and p.tankReminder or nil
 end
 
 function ns.EnsureProfile(name)

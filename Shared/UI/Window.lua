@@ -290,7 +290,6 @@ function Parts.ClassicBox(frame)
     return ns.Border(inside, St.CLASSIC_BRONZE_RGB)
 end
 
--- False when the name has no icon or this client lacks its file; the caller keeps its glyph.
 function Parts.ClassicIcon(texture, name)
     local icon = ns.classicSkin and St.CLASSIC_ICONS[name]
     if not (icon and texture:SetTexture(St.CLASSIC_ICON_PATH .. icon)) then return false end
@@ -315,7 +314,6 @@ function Parts.TitlePlate(frame, text)
     title:SetShadowOffset(0, PLATE_SHADOW_Y)
     title:SetPoint("CENTER", frame, "TOP")
     title:SetText(ns.L(text):upper())
-    -- Sized by the title itself: its width is wrong until the font has loaded.
     plate:SetPoint("LEFT", title, "LEFT", -St.CLASSIC_PLATE_PAD, 0)
     plate:SetPoint("RIGHT", title, "RIGHT", St.CLASSIC_PLATE_PAD, 0)
     Gem(plate, St.CLASSIC_PLATE_GEM, -St.CLASSIC_PLATE_GEM_GAP, 0, title, "LEFT")

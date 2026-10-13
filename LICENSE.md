@@ -880,16 +880,3 @@ DAMAGES.
 
                      END OF TERMS AND CONDITIONS
 ```
-
-## JetBrains Mono
-
-**Path**: NaowhForever/Core/Media/Fonts/JetBrainsMonoNL-Regular.ttf
-
-### License
-
-SIL Open Font License, Version 1.1. The full text is in
-NaowhForever/Core/Media/Fonts/JetBrainsMono-OFL.txt.
-
-```
-Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
-```

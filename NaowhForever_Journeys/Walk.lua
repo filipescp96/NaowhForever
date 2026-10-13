@@ -294,7 +294,6 @@ local function Search(g, seeds)
     return cost, prev
 end
 
--- A spot's walking reach, for Walk.Cost: nil where the map has no walking data under it.
 function Walk.From(spot)
     if not Walk.Ready() then return nil end
     local map = spot.c
@@ -423,8 +422,6 @@ local function PolyFor(tile, crossing)
     end
 end
 
--- The walk from reach a to reach b as corner points { x1, y1, x2, y2, ... }, start and end included,
--- or nil when there is no walk between them.
 function Walk.Path(a, b)
     local _, via = Between(a, b)
     local out = { a.x, a.y }
@@ -457,9 +454,6 @@ function Walk.Path(a, b)
     return Segment(tile, fromPoly, fromX, fromY, b.poly, b.x, b.y, out) and out or nil
 end
 
--- Walking yards (water counted dearer) between two ends: each a place key of the network ("f2",
--- "s3.1", "l1.2") or a reach from Walk.From. false when there is no walk; nil when the data cannot
--- say, as for a place with no ground baked near it (the Stormwind Harbor dock).
 function Walk.Cost(map, a, b)
     if not Walk.Ready() then return nil end
     local p = Places(map)

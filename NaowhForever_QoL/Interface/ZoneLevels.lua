@@ -12,6 +12,7 @@ local TEXT_RANGE, TEXT_LEVEL = ns.L("Level %d-%d"), ns.L("Level %d")
 local LEVELS = ns.ZoneLevels
 
 local label, shownMapID
+local lastX, lastY, lastMapID
 local added
 local provider = CreateFromMixins(MapCanvasDataProviderMixin)
 
@@ -44,8 +45,13 @@ local function OnUpdate()
     local mapID
     if map:IsCanvasMouseFocus() then
         local x, y = map:GetNormalizedCursorPosition()
-        local info = C_Map.GetMapInfoAtPosition(map:GetMapID(), x, y)
-        if info and info.mapID ~= map:GetMapID() then mapID = info.mapID end
+        local current = map:GetMapID()
+        if x == lastX and y == lastY and current == lastMapID then return end
+        lastX, lastY, lastMapID = x, y, current
+        local info = C_Map.GetMapInfoAtPosition(current, x, y)
+        if info and info.mapID ~= current then mapID = info.mapID end
+    else
+        lastX = nil
     end
     if mapID ~= shownMapID then Show(mapID) end
 end
@@ -73,6 +79,7 @@ local function Apply()
         added = true
     end
     Show(nil)
+    lastX = nil
     label:SetShown(On())
 end
 

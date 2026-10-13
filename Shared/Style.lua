@@ -34,7 +34,6 @@ Shared.Style = {
     CLASSIC_TITLE_RGB = { r = 0xf4 / 255, g = 0xcf / 255, b = 0x63 / 255 },
     CLASSIC_PLATE_GEM = 7,
     CLASSIC_PLATE_GEM_GAP = 12,
-    -- The game's panel button (UIPanelButtonTemplate): its art, the caps' width, and the template's own crops.
     CLASSIC_BUTTON_ART = {
         up = "Interface\\Buttons\\UI-Panel-Button-Up",
         down = "Interface\\Buttons\\UI-Panel-Button-Down",
@@ -91,7 +90,6 @@ Shared.Style = {
     TIP_RGB = { r = 0.9, g = 0.8, b = 0.5 },
     BIS_CODE = "|cffff8000",
     BIS_RGB = { r = 1, g = 0.5, b = 0 },
-    SECOND_CODE = "|cffc7ccdb",
     SECOND_RGB = { r = 0xc7 / 255, g = 0xcc / 255, b = 0xdb / 255 },
     LOOK_CODE = "|cff66d9ef",
     LOOK_RGB = { r = 0x66 / 255, g = 0xd9 / 255, b = 0xef / 255 },

@@ -499,7 +499,10 @@ What a comment in the code used to say, in short. The house rules behind it are 
   as it is made; a change takes a reload.
 - A window's frame steps out from its own black edge: a gold line, `CLASSIC_TRIM_BODY` pixels of
   bronze and a black rim, with a gem on each corner. The options window's name sits on a plate
-  over its top edge, in the game's title face.
+  over its top edge, in the game's title face. The plate is anchored to the title's own edges:
+  the title's width is wrong until the font has loaded.
+- `Parts.ClassicIcon` answers false when the name has no Classic+ icon or this client lacks its
+  file, and the caller keeps its own glyph.
 - A window's background is the game's own rock tiled over the backdrop, darkened
   (`CLASSIC_PATTERN_SHADE`) and partly see-through (`CLASSIC_PATTERN_ALPHA`), so text on it stays
   readable.
@@ -509,6 +512,8 @@ What a comment in the code used to say, in short. The house rules behind it are 
 - The help card is drawn as the game draws its tooltips: dark blue inside a grey-blue line.
 - The picked sidebar row is the game's blue list glow, fading to the right
   (`CLASSIC_PICK_ALPHA` to `CLASSIC_PICK_FADE`), with a lit line along its top.
+- The game's panel button (UIPanelButtonTemplate) lends its art, cap width and crops
+  (`CLASSIC_BUTTON_ART`, `CLASSIC_BUTTON_CAP`, `CLASSIC_BUTTON_COORDS`).
 - A button's colors are each state's `{ top, bottom }`; pressed turns them over. A slider is
   filled `{ top, bottom }` too, with a gem to drag on a black edge (`CLASSIC_KNOB_EDGE`).
 - The game's tick in a check box is drawn a little larger than the box (`CLASSIC_CHECK_SCALE`), as
