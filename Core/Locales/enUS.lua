@@ -5289,3 +5289,9 @@ L["The language of this addon. Game Language follows your game client. Saved for
 L["Korean"] = true
 L["Chinese (Simplified)"] = true
 L["Chinese (Traditional)"] = true
+
+L["Hunter Ammo"] = true
+L["Hunter Ammo Reminder"] = true
+L["Remind Me When Ammo Falls To"] = true
+L["Uses your ammo warning amount instead of the carry target while enabled."] = true
+L["Reminds at or below this many equipped arrows or shot across all bag stacks."] = true
