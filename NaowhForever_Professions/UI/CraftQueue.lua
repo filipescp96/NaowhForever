@@ -14,7 +14,8 @@ local Style = P.Style
 local Widgets = P.Widgets
 
 local PAGE = "Professions/Settings"
-local WIDTH, MIN_H, MAX_H = 380, 190, 520
+local WIDTH, HEIGHT = 380, 320
+local MIN_W, MIN_H = 320, 190
 local HEADER, PAD, FOOTER, SCROLLBAR = St.WINDOW_HEADER, St.WINDOW_PAD, St.WINDOW_FOOTER, St.SCROLLBAR
 local INSET = St.CONTENT_INSET
 local CARD_INSET = 6
@@ -31,10 +32,9 @@ local SMALL_BUTTON = 16
 local STEP_GAP, MINUS_GAP = 6, 2
 local CLEAR_W, START_W = 68, 94
 local BUTTON_H = 24
-local EMPTY_H = 48
 
 local TEXT_TITLE = ns.L("Crafting Queue")
-local TEXT_SUBTITLE = ns.L("Prerequisites first, then your queued crafts.")
+local TEXT_SUBTITLE = ns.L("Prerequisites first, then crafts.")
 local TEXT_PREREQUISITES = ns.L("Pre-requisite Crafts")
 local TEXT_CRAFTS = ns.L("Crafts")
 local TEXT_EMPTY = ns.L("Crafts you add appear here. Their missing auction-house materials go to the Shopping List.")
@@ -209,11 +209,9 @@ function View.Render()
     local crafts
     y, crafts = PlaceSection(false, y)
     local count = prerequisites + crafts
-    local contentHeight = count > 0 and (-y + SECTION_GAP) or EMPTY_H
+    local contentHeight = count > 0 and (-y + SECTION_GAP) or 1
     content:SetHeight(math.max(1, contentHeight))
     empty:SetShown(count == 0)
-    local desired = HEADER + PAD + contentHeight + PAD + BOTTOM_H + FOOTER
-    window:SetHeight(math.max(MIN_H, math.min(MAX_H, desired)))
     local active = Queue.Active()
     ns.SetButtonText(start, Queue.Running() and (active and active.started and TEXT_RUNNING or TEXT_NEXT)
         or TEXT_START)
@@ -238,20 +236,24 @@ local function BuildBody()
     BuildHead("prerequisites", TEXT_PREREQUISITES)
     BuildHead("crafts", TEXT_CRAFTS)
     empty = ns.Font(window, Style.FONT, nil, T.muted)
-    empty:SetPoint("CENTER", scroll, "CENTER")
-    empty:SetWidth(WIDTH - 2 * INSET)
-    empty:SetJustifyH("LEFT")
+    empty:SetPoint("LEFT", scroll, "LEFT")
+    empty:SetPoint("RIGHT", scroll, "RIGHT")
+    empty:SetJustifyH("CENTER")
     empty:SetWordWrap(true)
     empty:SetText(TEXT_EMPTY)
 end
 
 local function BuildFooter()
     clear = ns.Button(window, TEXT_CLEAR, CLEAR_W, BUTTON_H, Queue.Clear)
-    clear:SetPoint("BOTTOMRIGHT", -INSET, FOOTER + PAD)
+    clear:SetPoint("BOTTOMLEFT", INSET, FOOTER + PAD)
     ns.Tooltip(clear, TEXT_CLEAR, TIP_CLEAR_HELP)
     start = ns.Button(window, TEXT_START, START_W, BUTTON_H, Queue.Click)
-    start:SetPoint("RIGHT", clear, "LEFT", -PAD, 0)
+    start:SetPoint("BOTTOMRIGHT", -INSET, FOOTER + PAD)
     ns.Tooltip(start, TEXT_START, TIP_START_HELP)
+end
+
+local function OnSized(_, width)
+    content:SetWidth(width - INSET - SCROLLBAR - SCROLL_GAP)
 end
 
 local function OnShow()
@@ -266,12 +268,16 @@ local function OnHide()
 end
 
 local function Build()
-    window = Parts.Window(WIDTH, MIN_H, "craftQueueWindow")
+    window = Parts.Window(WIDTH, HEIGHT, "craftQueueWindow")
     window.backdrop:Card(CARD_INSET, HEADER + CARD_INSET, CARD_INSET, FOOTER + CARD_INSET)
-    Parts.TitleBar(window, TEXT_TITLE, TEXT_SUBTITLE, PAGE)
+    local close = Parts.TitleBar(window, TEXT_TITLE, TEXT_SUBTITLE, PAGE)
+    window.subtitle:SetPoint("RIGHT", close, "LEFT", -St.BAR_GAP, 0)
+    window.subtitle:SetWordWrap(false)
     Parts.FooterBrand(window, PAGE)
     BuildBody()
     BuildFooter()
+    Parts.Resizable(window, "craftQueue", MIN_W, MIN_H, OnSized)
+    OnSized(window, window:GetWidth())
     events = CreateFrame("Frame")
     events:SetScript("OnEvent", View.Render)
     window:HookScript("OnShow", OnShow)

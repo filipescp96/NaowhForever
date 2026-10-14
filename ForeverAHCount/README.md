@@ -45,7 +45,7 @@ Learned recipes receive small status markers in the left recipe list for shoppin
 
 ## Crafting Queue
 
-The profession window has separate Shopping List and Crafting Queue buttons in its top bar. The per-character Crafting Queue uses the same standalone window style as Naowh's Shopping List, stays open when the profession window closes, grows with its contents, and becomes mouse-wheel-scrollable when needed. Purchased crafts move into the queue when their auction-house materials are ready. Cheaper crafted prerequisites are listed separately and prepared first; missing vendor materials remain clearly marked with a detailed tooltip.
+The profession window has separate Shopping List and Crafting Queue buttons in its top bar. The per-character Crafting Queue uses the same standalone, manually resizable window style as Naowh's Shopping List, stays open when the profession window closes, and is mouse-wheel-scrollable when needed. Purchased crafts move into the queue when their auction-house materials are ready. Cheaper crafted prerequisites are listed separately and prepared first; missing vendor materials remain clearly marked with a detailed tooltip.
 
 Queue rows support quantity changes and removal, and **Clear** removes the full queue plus its queue-generated Shopping List entries. **Start Queue** prepares the first available batch, then every **Craft Next** batch requires a fresh player click through Naowh's normal crafting path. Completed batches prepare the next prerequisite or regular craft without automating the protected crafting action.
 
