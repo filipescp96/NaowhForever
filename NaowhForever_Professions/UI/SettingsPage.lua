@@ -214,12 +214,9 @@ page:Card({
               .. "favourite recipes that you have not learned or bought, with what they cost now. Buy finds "
               .. "the cheapest and asks before Accept buys it." },
         { key = "shoppingList", label = "Shopping List", toggle = true, needs = On, why = TEXT_OFF,
-          help = "Adds \"- [1] + Add to List\" under a recipe's reagents: the materials Buy on AH would buy for "
-              .. "that many crafts go on a shopping list, from anywhere. At the auction house the list shows "
-              .. "beside it: Check Prices looks each one up and warns in red when one is well above your last "
-              .. "scan, then Buy All goes through the list one material at a time, each bought only when you "
-              .. "confirm its final price. A material you can make for less from its parts, such as a bar from "
-              .. "ore, has its parts bought instead." },
+          help = "Adds \"- [1] + Add to Crafting Queue\" under a recipe's reagents. Missing auction-house "
+              .. "materials go to the standalone Shopping List, including its item entry and Consumables "
+              .. "picker. Queued crafts and cheaper prerequisites remain beside the profession window." },
         Group("Vendors"),
         { key = "vendorMaterials", label = "Crafts with Vendor Buys", toggle = true, needs = On,
           why = TEXT_OFF,

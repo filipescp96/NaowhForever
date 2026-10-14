@@ -37,9 +37,9 @@ The markers update when a merchant or trainer refreshes, when a recipe is learne
 
 Naowh Forever's **Favorite Patterns** Auction House panel can scan the complete favorite-pattern list instead of stopping at the first visible rows. It opens idle so no market searches are sent until **Scan** is pressed. The button becomes **Pause** while scanning and **Resume Scan** while paused; pausing preserves completed results and the remaining queue. Already-learned recipes stay excluded, and patterns confirmed to have no active buyout are removed from the panel. Available and unresolved entries use pages of eight rows, navigable with the `<` and `>` buttons or the mouse wheel while hovering the panel.
 
-## Scrollable Shopping List
+## Naowh Shopping List Integration
 
-The Shopping List beside the profession window no longer truncates its Crafts, Materials, or Make First sections. All entries share a clean, scrollbar-free area; hover the list and use the mouse wheel. The title, estimated total, and Clear button remain fixed.
+The crafting queue builds on Naowh's standalone Shopping List, including its direct item entry and Consumables picker. Adding a craft to the queue automatically adds its missing auction-house materials to that window without replacing its native features.
 
 When a selected recipe is already in the Shopping List, its header also shows a compact muted count and shopping-cart icon. The count updates immediately when the recipe is added, increased, decreased, removed, or cleared.
 
@@ -47,7 +47,7 @@ Learned recipes receive small status markers in the left recipe list for shoppin
 
 ## Crafting Queue
 
-The profession window's right column is split between the Shopping List and a persistent per-character Crafting Queue. Purchased crafts move into the queue when their auction-house materials are ready. Cheaper crafted prerequisites are listed separately and prepared first; missing vendor materials remain clearly marked with a detailed tooltip and can be added to the Shopping List when appropriate.
+The profession window has a persistent, mouse-wheel-scrollable per-character Crafting Queue. Purchased crafts move into the queue when their auction-house materials are ready. Cheaper crafted prerequisites are listed separately and prepared first; missing vendor materials remain clearly marked with a detailed tooltip.
 
 Queue rows support quantity changes and removal. **Start Queue** prepares the first available batch, then every **Craft Next** batch requires a fresh player click through Naowh's normal crafting path. Completed batches prepare the next prerequisite or regular craft without automating the protected crafting action.
 

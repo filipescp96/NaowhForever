@@ -46,4 +46,21 @@ shopping.Add({ recipeID = 1, name = "Test", icon = 1 }, 1, nil, true)
 local craft = shopping.List()[1]
 assert(craft.need[10] == 1 and craft.need[11] == 1, "AH-cheaper vendor material was omitted from recipe needs")
 
+local stepped, removed
+ns.Professions.CraftQueue = {
+    Step = function(recipeID, prerequisite, by)
+        stepped = { recipeID, prerequisite, by }
+    end,
+    Remove = function(recipeID, prerequisite)
+        removed = { recipeID, prerequisite }
+    end,
+}
+craft.fromQueue = true
+shopping.Step(1, 1)
+assert(stepped and stepped[1] == 1 and stepped[2] == false and stepped[3] == 1,
+    "editing a queue-backed shopping craft did not update the crafting queue")
+shopping.Remove(1)
+assert(removed and removed[1] == 1 and removed[2] == false,
+    "removing a queue-backed shopping craft did not update the crafting queue")
+
 print("Shopping plan vendor-price regression test: PASS")

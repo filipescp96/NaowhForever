@@ -1,26 +1,26 @@
--- ShoppingAdd.lua: Add to List under a recipe, and the button on the profession window that opens the Shopping List.
+-- ShoppingAdd.lua: add a recipe to the crafting queue, and open the Shopping List.
 local ns = _G.NaowhForever
 
 local P = ns.Professions
 local S = P.Settings
 local C = P.C
 local Shopping = P.Shopping
+local Queue = P.CraftQueue
 local Style = P.Style
 local Widgets = P.Widgets
 
-local ADD_W = 90
+local ADD_W = 142
 local ADD_DROP = 4
 local ADD_OVERHANG = 4
 local OPEN_W, OPEN_H, OPEN_RIGHT, OPEN_DROP = 100, 22, 132, 7
-local TEXT_ADD = ns.L("Add to List")
+local TEXT_ADD = ns.L("Add to Crafting Queue")
 local TEXT_OPEN = ns.L("Shopping List")
 local TIP_OPEN, TIP_OPEN_HELP = ns.L("Shopping List"), ns.L("Opens your shopping list, which stays open when this window closes.")
-local TIP_ADD = ns.L("Add to Shopping List")
-local TIP_ADD_HELP = ns.L("Puts the materials for that many crafts on your "
-    .. "shopping list: every checked reagent that vendors do not sell, whatever is in your "
-    .. "bags. Uncheck a reagent to leave it out. At the auction house the list shows beside "
-    .. "it, to check the prices and buy it all.")
-local TIP_CRAFTS, TIP_CRAFTS_HELP = ns.L("Crafts"), ns.L("How many crafts Add to List adds the materials for.")
+local TIP_ADD = ns.L("Add to Crafting Queue")
+local TIP_ADD_HELP = ns.L("Adds this recipe and its cheaper prerequisite crafts to the crafting queue, "
+    .. "then puts its missing auction-house materials on Naowh's Shopping List.")
+local TIP_CRAFTS, TIP_CRAFTS_HELP = ns.L("Crafts"),
+    ns.L("How many crafts to add to the crafting queue.")
 
 local addRow, addRecipe, opener
 
@@ -34,14 +34,12 @@ end
 
 local function OnAdd()
     local info = ns.ProfWindowAPI.SelectedInfo()
-    if not info then return end
-    Shopping.Add(info, AddCrafts())
-    ns.OpenShoppingList()
+    if info then Queue.AddWithShopping(info, AddCrafts()) end
 end
 
 function ns.ShoppingListAttach(win)
     local row = CreateFrame("Frame", nil, win.detail)
-    row:SetSize(Style.BUY_ROW_W, Style.BUTTON_H)
+    row:SetSize(Style.PANE_INNER_W - 8, Style.BUTTON_H)
     row:Hide()
     addRow = row
     row.add = ns.Button(row, TEXT_ADD, ADD_W, Style.BUTTON_H, OnAdd)
@@ -60,15 +58,17 @@ function ns.ShoppingListAttach(win)
     minus:SetPoint("RIGHT", qty, "LEFT", -Style.STEP_GAP, 0)
     ns.Tooltip(qty, TIP_CRAFTS, TIP_CRAFTS_HELP)
     opener = ns.Button(win, TEXT_OPEN, OPEN_W, OPEN_H, ns.ToggleShoppingList)
-    opener:SetPoint("TOPRIGHT", -OPEN_RIGHT, -OPEN_DROP)
+    -- Keep Naowh's opener in its original header position when the queue widens the window.
+    opener:SetPoint("TOPRIGHT", win, "TOPLEFT", Style.WINDOW_W - OPEN_RIGHT, -OPEN_DROP)
     ns.Tooltip(opener, TIP_OPEN, TIP_OPEN_HELP)
     opener:Hide()
+    if P.CraftQueueView then P.CraftQueueView.Attach(win) end
 end
 
 function ns.ShoppingListRender(info, last)
     if opener then opener:SetShown(On()) end
     if not addRow then return end
-    if not (On() and info and last) or not Shopping.HasNeeds(info.recipeID) then return addRow:Hide() end
+    if not (On() and info and last) then return addRow:Hide() end
     if info.recipeID ~= addRecipe then
         addRecipe = info.recipeID
         addRow.qty:SetText("1")

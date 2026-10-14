@@ -57,8 +57,9 @@ NaowhForever_Professions/
     Book.lua           the overview's profession cards (P.Book)
     Window.lua         the window: frame, title, skill bar, rank banner, search, Filter, drawing (P.Window)
     Takeover.lua       showing it over Blizzard's window, docking Blizzard's tabs and cards, dragging, events
-    ShoppingAdd.lua    Add to List under a recipe, and the button that opens the shopping list
+    ShoppingAdd.lua    Add to Crafting Queue under a recipe, and the button that opens the shopping list
     ShoppingWindow.lua the Shopping List window: crafts, other items, materials (ns.ToggleShoppingList)
+    CraftQueue.lua     the docked crafting queue, missing-material tooltips and click-driven controls
     ShoppingConsumables.lua the Consumables picker beside the Shopping List
     ShoppingList.lua   the shopping list beside the auction house: check and buy
     TrainFavorites.lua Train Favorites beside the trainer
@@ -119,7 +120,7 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   in a right-aligned column as wide as the widest on screen, so every icon and name starts in line,
   never left of `ICON_X` (24), which keeps recipes indented under their headers.
 - The rank banner pushes both columns down 46 while it shows. Filter is 76 wide for "Filter (3)".
-  The Buy, Add to List and Create rows share one width, so they line up; the reagent rows end 4
+  The Buy, Add to Crafting Queue and Create rows share one width, so they line up; the reagent rows end 4
   short of Create, hence the Buy row's 4 overhang.
 - Bind on Equip also counts items that never bind (bindType 0): on the beta much crafted gear does not
   bind and still sells on the auction house.

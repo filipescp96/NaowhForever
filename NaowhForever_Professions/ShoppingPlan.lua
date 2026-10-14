@@ -371,12 +371,15 @@ end
 local function Step(recipeID, by)
     local craft = recipeID and List()[recipeID]
     if not craft then return end
+    if craft.fromQueue and P.CraftQueue then return P.CraftQueue.Step(recipeID, false, by) end
     craft.count = math.max(1, math.min(C.MAX_CRAFTS, craft.count + by))
     Trim()
     Redraw()
 end
 
 local function Remove(recipeID)
+    local craft = recipeID and List()[recipeID]
+    if craft and craft.fromQueue and P.CraftQueue then return P.CraftQueue.Remove(recipeID, false) end
     List()[recipeID] = nil
     Trim()
     Redraw()
