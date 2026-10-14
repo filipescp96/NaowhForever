@@ -160,6 +160,9 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
 - Manual Favorite Scans starts off. When enabled, Favorite Patterns sends no searches until Scan is
   clicked, Pause stops after the current auction reply, and Resume continues the same queue. Completed
   pages omit patterns with no buyout while the mouse wheel and pager reach every remaining pattern.
+  A search with no reply in 3s is put back for Resume, and a scan that ends with any unanswered
+  stays on Resume rather than done. Lookup timeouts keep their own counter, so a reset cannot hand a
+  new search the number of a pending timeout.
 - Starting a commodity purchase is protected (ADDON_ACTION_BLOCKED when tried on its own, seen
   2026-09-30), so the shopping list buys each material after the first on a click of Buy Next. A
   final price 10% over the check is warned about. A search sent while the auction house is busy is

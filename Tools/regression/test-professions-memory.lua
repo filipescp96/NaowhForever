@@ -525,6 +525,27 @@ patternWindow.scan.scripts.OnClick(patternWindow.scan)
 check("Resume continues the queued auction searches", calls.SendSearchQuery == 2)
 patternWindow.scan.scripts.OnClick(patternWindow.scan)
 
+-- Searches that time out are tried again: the scan stops at Resume, not done with them unsearched.
+patternWindow.scan.scripts.OnClick(patternWindow.scan)
+Advance(60)
+check("a scan whose searches timed out waits to resume", patternWindow.scan.label.text == "Resume Scan")
+local sent = calls.SendSearchQuery
+patternWindow.scan.scripts.OnClick(patternWindow.scan)
+check("Resume searches the timed-out patterns again", calls.SendSearchQuery == sent + 1)
+
+-- A new scan's search is not cut short by the timeout of one from before a reset.
+ns.Professions.Settings.Set("manualPatternScan", true)
+Advance(0.5)
+patternWindow.scan.scripts.OnClick(patternWindow.scan)
+Advance(1)
+ns.Professions.Settings.Set("manualPatternScan", true)
+Advance(0.5)
+patternWindow.scan.scripts.OnClick(patternWindow.scan)
+sent = calls.SendSearchQuery
+Advance(2)
+check("an earlier search's timeout leaves the new search running", calls.SendSearchQuery == sent)
+patternWindow.scan.scripts.OnClick(patternWindow.scan)
+
 -- A pass of every hot path, also the warm-up before measuring.
 local list = win.list
 local function Scroll()

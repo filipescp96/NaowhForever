@@ -73,7 +73,7 @@ local bids = {}
 local live = {}
 local waiting = {}
 local lookup, lookups, looked = nil, {}, {}
-local lookupWait
+local lookupWait, lookupGen = nil, 0
 local pending = false
 local page = 1
 local scanState = "idle"
@@ -137,17 +137,21 @@ local function NextLookup()
     if not item then
         if Manual() then
             scanState = "done"
+            for _, e in ipairs(Patterns.List()) do
+                if live[e.item] == nil then scanState = "paused" break end
+            end
             if Render then Render() end
         end
         return
     end
     local key = C_AuctionHouse.MakeItemKey(item)
-    local gen = (looked.gen or 0) + 1
-    looked.gen = gen
+    lookupGen = lookupGen + 1
+    local gen = lookupGen
     lookup = { item = item, key = key }
     C_AuctionHouse.SendSearchQuery(key, PRICE_SORT, false)
     C_Timer.After(LOOKUP_TIMEOUT, function()
-        if lookup and looked.gen == gen then
+        if lookup and lookupGen == gen then
+            if Manual() then looked[item] = nil end
             lookup = nil
             NextLookup()
         end

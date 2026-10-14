@@ -2,6 +2,9 @@
 local L = _G.NaowhForeverLocale or {}
 _G.NaowhForeverLocale = L
 
+L["Manual Favorite Scans"] = true
+L["Needs Search Favorites AH"] = true
+L["Adds Scan, Pause and Resume controls instead of searching every favourite automatically."] = true
 L["Worn Gear Reminder"] = true
 L["An icon while you wear Cloak of Hermitic Bliss in Wailing Caverns, so you remember to swap it."] = true
 L["You are wearing this."] = true
