@@ -38,12 +38,15 @@ _G.NaowhForever.Professions.CraftQueue = { List = function()
     return { crafts = { [10] = { count = 2 } }, prerequisites = { [10] = { count = 1 }, [20] = { count = 1 } } }
 end }
 local counts = _G.NaowhForever.Professions.List.MarkerCounts
-local shopping, queued, bags, bank = counts({ recipeID = 10 })
+_G.NaowhForever.Professions.List.AuctionCount = function(id) return id == 10 and 4 or 0 end
+local shopping, queued, bags, bank, auctions = counts({ recipeID = 10 })
 assert(shopping == 2, "shopping marker count was not normalized")
 assert(queued == 3, "queue marker did not total regular and prerequisite crafts")
 assert(bags == 3 and bank == 7, "bag and bank marker counts were not returned")
-local noShopping, noQueue, emptyBags, emptyBank = counts({ recipeID = 30 })
+assert(auctions == 4, "auction marker count was not returned")
+local noShopping, noQueue, emptyBags, emptyBank, noAuctions = counts({ recipeID = 30 })
 assert(noShopping == 0 and noQueue == 0, "empty shopping and queue markers must remain hidden")
 assert(emptyBags == 0 and emptyBank == 0, "recipes without an output item must not show an ownership marker")
+assert(noAuctions == 0, "recipes without active auctions must not show an auction marker")
 
 print("Shopping marker regression test: PASS")

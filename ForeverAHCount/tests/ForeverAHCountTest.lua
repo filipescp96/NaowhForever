@@ -179,7 +179,9 @@ assert(not filters.Passes(nil, { spell = 101 }), "unlearned recipes should not p
 eventFrame:OnEvent("AUCTION_OWNED_LIST_UPDATE")
 
 assert(ForeverAHCount.GetCount(501) == 5, "only active item quantities should be counted")
-assert(row.text.value:find("%(5%)"), "the active quantity should be appended to the recipe row")
+assert(NaowhForever.Professions.List.AuctionCount(101) == 5,
+    "the recipe-list auction marker provider should return the active quantity")
+assert(row.text.value == "Test Item", "the auction marker should not modify the recipe name")
 assert(ForeverAHCountDB.lastScan == 12345, "the scan time should be persisted")
 assert(not filters.Passes({ recipeID = 101 }), "a currently listed recipe should not pass the new filter")
 assert(redraws == 1, "an auction update should rebuild the list while the filter is active")
@@ -188,7 +190,8 @@ auctions = {}
 eventFrame:OnEvent("AUCTION_OWNED_LIST_UPDATE")
 
 assert(ForeverAHCount.GetCount(501) == 0, "a sold or removed item should disappear after an owner update")
-assert(row.text.value == "Test Item", "recipes with no active auction should have no badge")
+assert(NaowhForever.Professions.List.AuctionCount(101) == 0,
+    "the auction marker provider should clear recipes with no active auction")
 assert(filters.Passes({ recipeID = 101 }), "a profitable recipe should return when its auction is gone")
 assert(redraws == 2, "removing an auction should rebuild the filtered list")
 

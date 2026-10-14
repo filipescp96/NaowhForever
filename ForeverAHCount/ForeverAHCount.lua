@@ -3,9 +3,6 @@
 
 local ADDON_NAME = ...
 
-local AH_ICON = "|TInterface\\Minimap\\Tracking\\Auctioneer:12:12:0:0|t"
-local AH_COLOR = "|cffffd100"
-local COLOR_END = "|r"
 local ACTIVE_LEGACY_STATUS = 1 -- Legacy status 1 means the auction has sold.
 local FILTER_KEY = "filterProfitableNotSelling"
 local FILTER_TEXT = "Profitable & Not Selling"
@@ -62,26 +59,6 @@ local function AuctionCount(itemID)
     return tonumber(counts[itemID] or counts[tostring(itemID)]) or 0
 end
 
-local function UpdateVisibleRows()
-    local ns = _G.NaowhForever
-    local professions = ns and ns.Professions
-    local state = professions and professions.State
-    local listFrame = state and state.frame and state.frame.list
-    if not listFrame or state.linked then return end
-
-    local rows = { listFrame:GetChildren() }
-    for _, row in ipairs(rows) do
-        local recipe = row.entry and row.entry.recipe
-        if recipe and row.text then
-            local count = AuctionCount(RecipeOutputItem(recipe.recipeID))
-            if count > 0 then
-                local name = recipe.name or row.text:GetText() or ""
-                row.text:SetText(("%s %s%s(%d)%s"):format(name, AH_ICON, AH_COLOR, count, COLOR_END))
-            end
-        end
-    end
-end
-
 local function ProfitableNotSellingFilterActive()
     local ns = _G.NaowhForever
     local professions = ns and ns.Professions
@@ -110,7 +87,9 @@ local function InstallProfessionHook()
     local list = ns and ns.Professions and ns.Professions.List
     if not (list and type(list.Render) == "function") then return false end
 
-    hooksecurefunc(list, "Render", UpdateVisibleRows)
+    list.AuctionCount = function(recipeID)
+        return AuctionCount(RecipeOutputItem(recipeID))
+    end
     listHooked = true
     return true
 end

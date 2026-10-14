@@ -31,11 +31,13 @@ local ICON_SHRINK = Style.ROW_ICON_SHRINK
 local TEXT_GAP = 6
 local STAR_GAP = 4
 local STAR_SIZE = 12
+local AUCTION_GAP, AUCTION_SIZE = 4, 12
 local CART_GAP, CART_SIZE = 4, 12
 local QUEUE_GAP, QUEUE_SIZE = 4, 12
 local BAG_GAP, BAG_SIZE = 4, 12
 local QUEUE_ICON = "Interface\\Icons\\Trade_BlackSmithing"
 local BAG_ICON = "Interface\\Icons\\INV_Misc_Bag_08"
+local AUCTION_ICON = "Interface\\Minimap\\Tracking\\Auctioneer"
 local HEAD_X, SUB_HEAD_X = 4, 14
 local COUNT_X, COUNT_GAP, ICON_X = 4, 6, 24
 local TEXT_HEAD = "%s (%d)"
@@ -47,6 +49,7 @@ local TEXT_BAGS = ns.L("In Bags")
 local TEXT_BANK = ns.L("In Bank")
 local TEXT_SHOPPING_LIST = ns.L("Shopping List")
 local TEXT_CRAFTING_QUEUE = ns.L("Crafting Queue")
+local TEXT_AUCTION_HOUSE = AUCTION_HOUSE or ns.L("Auction House")
 local TEXT_COUNT = ns.L("%d")
 
 local win
@@ -115,7 +118,12 @@ end
 local function MarkerCounts(info)
     local shopping = P.Shopping and P.Shopping.List and P.Shopping.List()[info.recipeID]
     local bags, bank = OwnedCounts(info.recipeID)
-    return ShoppingCount(shopping), QueuedCount(info.recipeID), bags, bank
+    local auctions = 0
+    if type(List.AuctionCount) == "function" then
+        local ok, count = pcall(List.AuctionCount, info.recipeID)
+        if ok then auctions = math.max(0, tonumber(count) or 0) end
+    end
+    return ShoppingCount(shopping), QueuedCount(info.recipeID), bags, bank, auctions
 end
 
 local function AlignRows(visible)
@@ -246,6 +254,14 @@ local function NewRow(i)
     row.fav:SetPoint("RIGHT", row.profit, "LEFT", -STAR_GAP, 0)
     Widgets.Star(row.fav, true)
     row.fav:Hide()
+    row.auction = Marker(row, AUCTION_SIZE)
+    row.auction.icon = Widgets.Crop(row.auction:CreateTexture(nil, "OVERLAY"))
+    row.auction.icon:SetAllPoints()
+    row.auction.icon:SetTexture(AUCTION_ICON)
+    row.auction:Hide()
+    row.auction:SetScript("OnEnter", function(self)
+        MarkerTooltip(self, self.itemName or TEXT_AUCTION_HOUSE, TEXT_AUCTION_HOUSE, self.count or 0)
+    end)
     row.cart = Marker(row, CART_SIZE)
     local function CartPart(width, height, x, y)
         local part = row.cart:CreateTexture(nil, "OVERLAY")
@@ -289,14 +305,17 @@ local function NewRow(i)
     return row
 end
 
-local function TextBeforeMarkers(row, fav, cart, queued, owned)
+local function TextBeforeMarkers(row, fav, auctions, cart, queued, owned)
     row.fav:SetShown(fav)
+    row.auction:SetShown(auctions > 0)
     row.cart:SetShown(cart > 0)
     row.craftQueue:SetShown(queued > 0)
     row.bag:SetShown(owned)
     row.cart.count = cart
+    row.auction.count = auctions
     row.craftQueue.count = queued
     row.fav:ClearAllPoints()
+    row.auction:ClearAllPoints()
     row.cart:ClearAllPoints()
     row.craftQueue:ClearAllPoints()
     row.bag:ClearAllPoints()
@@ -304,6 +323,10 @@ local function TextBeforeMarkers(row, fav, cart, queued, owned)
     if fav then
         row.fav:SetPoint("RIGHT", anchor, "LEFT", -STAR_GAP, 0)
         anchor = row.fav
+    end
+    if auctions > 0 then
+        row.auction:SetPoint("RIGHT", anchor, "LEFT", -AUCTION_GAP, 0)
+        anchor = row.auction
     end
     if cart > 0 then
         row.cart:SetPoint("RIGHT", anchor, "LEFT", -CART_GAP, 0)
@@ -317,7 +340,7 @@ local function TextBeforeMarkers(row, fav, cart, queued, owned)
         row.bag:SetPoint("RIGHT", anchor, "LEFT", -BAG_GAP, 0)
         anchor = row.bag
     end
-    local gap = (fav or cart > 0 or queued > 0 or owned) and QUEUE_GAP or TEXT_GAP
+    local gap = (fav or auctions > 0 or cart > 0 or queued > 0 or owned) and QUEUE_GAP or TEXT_GAP
     row.text:SetPoint("RIGHT", anchor, "LEFT", -gap, 0)
 end
 
@@ -330,6 +353,7 @@ local function FillHeader(row, cat)
     row.profit:SetText("")
     row.icon:Hide()
     row.fav:Hide()
+    row.auction:Hide()
     row.cart:Hide()
     row.craftQueue:Hide()
     row.bag:Hide()
@@ -351,7 +375,7 @@ local function FillUnlearned(row, r)
     local profit, color = ListProfit(r.spell, r.item or read, made)
     row.profit:SetText(profit)
     SetColor(row.profit, color)
-    TextBeforeMarkers(row, Favorites.Is(r), 0, 0, false)
+    TextBeforeMarkers(row, Favorites.Is(r), 0, 0, 0, false)
     row.head:Hide()
     row.sel:SetShown(r == W.selectedUnlearned)
 end
@@ -364,9 +388,11 @@ local function FillRecipe(row, info)
     row.text:SetText(info.name)
     SetColor(row.text, Style.DIFFICULTY_RGB[info.relativeDifficulty] or T.fg)
     row.count:SetText(W.linked and Orders.Count(info.recipeID) or FormatCraftCount(info))
-    local shopping, queued, bags, bank = List.MarkerCounts(info)
+    local shopping, queued, bags, bank, auctions = List.MarkerCounts(info)
     row.bag.bags, row.bag.bank, row.bag.itemName = bags, bank, info.name
-    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), not W.linked and shopping or 0,
+    row.auction.itemName = info.name
+    TextBeforeMarkers(row, not W.linked and Favorites.Is(info), not W.linked and auctions or 0,
+        not W.linked and shopping or 0,
         not W.linked and queued or 0, not W.linked and (bags > 0 or bank > 0))
     local profit, color = ListProfit(info.recipeID, R.OutputItem(info.recipeID))
     row.profit:SetText(profit)
