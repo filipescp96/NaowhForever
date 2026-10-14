@@ -15,7 +15,7 @@ local MODES = {
     { key = "interrupts", short = "Interrupts", label = "Interrupts", type = "Interrupts", rate = false, total = "Interrupts" },
     { key = "dispels", short = "Dispels", label = "Dispels", type = "Dispels", rate = false, total = "Dispels" },
     { key = "deaths", short = "Deaths", label = "Deaths", type = "Deaths", rate = false, spells = false, percent = false,
-      total = "Deaths" },
+      total = "Deaths", totalHead = "Time", deathTime = true },
 }
 
 local byKey, labels, order = {}, {}, {}
@@ -93,7 +93,7 @@ ns.DamageMeter.C = {
         { key = "borderColor", label = "Border Color", group = "Window", token = "line" },
     },
     OWN_LOOK = {},
-    MODES = MODES, MODE_BY_KEY = byKey, MODE_LABELS = labels, MODE_ORDER = order,
+    MODE_BY_KEY = byKey, MODE_LABELS = labels, MODE_ORDER = order,
     SESSION_LABELS = { current = "Current", overall = "Overall" },
     SESSION_ORDER = { "current", "overall" },
     GRIP_UP = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",

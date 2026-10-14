@@ -10,6 +10,8 @@
     <Script file="Loot\Durability.lua"/>
     <Script file="Questing\TalentPoints.lua"/>
     <Script file="Questing\BuffThanks.lua"/>
+    <Script file="Gambling\GambleHelp.lua"/>
+    <Script file="Gambling\Gamble.lua"/>
     <Script file="Combat\CombatAlert.lua"/>
     <Script file="Questing\QuestAutomation.lua"/>
     <Script file="Questing\RewardList.lua"/>
@@ -17,6 +19,7 @@
     <Script file="Questing\Invites.lua"/>
     <Script file="Questing\GroupButtons.lua"/>
     <Script file="Questing\FreeForAll.lua"/>
+    <Script file="Questing\FinderRoles.lua"/>
     <Script file="Loot\LootConfirm.lua"/>
     <Script file="Cursor\CursorClip.lua"/>
     <Script file="Combat\CombatTimer.lua"/>

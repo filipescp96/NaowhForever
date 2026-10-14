@@ -28,12 +28,14 @@ local BEHIND_Y, BEHIND_SIZE = 60, 13
 local FAR, FAR_SCALE = 400, 0.65
 local FADE_FLOOR = 0.25
 local RUN_SPEED = 7
+local SAMPLE_EVERY, SMOOTH, MIN_CLOSING, MAX_CLOSING = 1, 0.5, 1, 60
 local NAV_W, NAV_H, NAV_PAD, NAV_ICON, NAV_ARROW = 320, 40, 10, 20, 14
 local NAV_NAME, NAV_SUB, NAV_DIST = 14, 11, 16
 local NAV_Y = -70
 local NAV_NAME_LIFT, NAV_SUB_GAP, CUE_TEXT_GAP = 2, 1, 2
 local ARRIVED_HOLD = ns.WAYPOINT_HOLD
-local REACHED, LEAVE = 5, 7
+local REACHED, LEAVE_MARGIN = 5, 2
+local QUEST_NEAR, QUEST_LEAVE = 40, 55
 local CHECK_SHARE = 0.6
 local ROUND = ns.QoLConstants.ROUND
 local MINUTE = ns.QoLConstants.SECONDS_PER_MINUTE
@@ -42,7 +44,7 @@ local SAME_SPOT = 0.05
 local DOWN = -math.pi / 2
 local NO_TIME = -1
 local STAGE_H = 190
-local SCALE_RANGE, FADE_NEAR_RANGE = St.SCALE_RANGE, { 0, 100, 5 }
+local SCALE_RANGE, FADE_NEAR_RANGE, ARRIVE_RANGE = St.SCALE_RANGE, { 0, 100, 5 }, { 5, 100, 5 }
 local PERCENT_SCALE = St.PERCENT_SCALE
 local GAME_PARTS = { "Icon", "Arrow", "DistanceText", "IconBorder" }
 local SHAPE_CHOICES = { { hex = "Hex", diamond = "Diamond", dot = "Dot" }, { "hex", "diamond", "dot" } }
@@ -257,7 +259,7 @@ end
 local pin, nav, cue, driver, navFrame, unlocked, gameHidden, warned
 local arrived, arrivals = false, 0
 local Arrived
-local selfCleared, seenAway
+local selfCleared, seenAway, seenFar
 local mapHooked, trackOnMapClose
 local reached
 local lastX, lastY
@@ -265,6 +267,7 @@ local shown = {}
 local dirty = true
 local paintedMode, paintedSide, paintedYards, paintedSeconds
 local knownSpeed = 0
+local sampleYards, sampleAt, closing
 local NavSample = { name = ns.L("Mage Trainer"), sub = "Thunder Bluff", yards = 312, mode = "world", angle = math.pi / 2 }
 local events = CreateFrame("Frame")
 
@@ -386,18 +389,37 @@ local function OnWaypointMap()
     return false
 end
 
-local function CheckReached(yards)
-    if shown.ground or yards > LEAVE then
+local function CheckReached(yards, near)
+    local leave = near + LEAVE_MARGIN
+    if shown.quest then near, leave = QUEST_NEAR, QUEST_LEAVE end
+    if shown.ground or yards > leave then
         reached = false
-    elseif yards <= REACHED then
+    elseif yards <= near then
         reached = true
     end
 end
 
+local function Sample(yards)
+    local now = GetTime()
+    if sampleAt and now - sampleAt < SAMPLE_EVERY then return end
+    if sampleAt then
+        local rate = (sampleYards - yards) / (now - sampleAt)
+        if rate < MIN_CLOSING or rate > MAX_CLOSING then
+            closing = nil
+        else
+            closing = closing and closing + (rate - closing) * SMOOTH or rate
+        end
+    end
+    sampleYards, sampleAt = yards, now
+end
+
 local function WalkSeconds(yards)
+    if not S.Get("waypointTime") then return nil end
+    Sample(yards)
+    if closing then return yards / closing end
     local speed = GetUnitSpeed("player")
     if not (issecretvalue and issecretvalue(speed)) then knownSpeed = speed end
-    return S.Get("waypointTime") and yards / (knownSpeed > 0 and knownSpeed or RUN_SPEED) or nil
+    return yards / (knownSpeed > 0 and knownSpeed or RUN_SPEED)
 end
 
 local function Changed(mode, side, yards, seconds)
@@ -443,9 +465,12 @@ local function Update()
     else
         PlaceOnSpot(nx, ny, scale)
     end
-    CheckReached(yards)
-    if yards > LEAVE then seenAway = true end
-    if shown.user and not shown.onRoute and not selfCleared and seenAway and yards <= REACHED and OnWaypointMap() then
+    local near = S.Get("waypointArrive")
+    CheckReached(yards, near)
+    if yards > REACHED + LEAVE_MARGIN then seenAway = true end
+    if yards > near + LEAVE_MARGIN then seenFar = true end
+    local reach = seenFar and near or REACHED
+    if shown.user and not shown.onRoute and not selfCleared and seenAway and yards <= reach and OnWaypointMap() then
         selfCleared = true
         Arrived()
         ns.ClearWaypoint()
@@ -458,6 +483,7 @@ end
 
 local function Retitle()
     dirty = true
+    sampleAt, closing = nil, nil
     local where, placed
     local kind, types = C_SuperTrack.GetHighestPrioritySuperTrackingType(), Enum.SuperTrackingType
     shown.name, where, shown.note, shown.icon, placed = Target(kind)
@@ -467,6 +493,7 @@ local function Retitle()
     if shown.onRoute then shown.sub = TEXT_STOP:format(route, St.PLACE_DOT, at, n) end
     shown.shape = S.Get("waypointShape")
     shown.user = kind == types.UserWaypoint
+    shown.quest = kind == types.Quest
     shown.ground = shown.user or kind == types.Corpse
     shown.card, shown.beam = S.Get("waypointCard"), S.Get("waypointBeam") and shown.ground
     pin.onNav, reached = false, false
@@ -496,7 +523,7 @@ local function Attach()
     navFrame = C_Navigation.GetFrame()
     if not navFrame then Detach() return end
     if not driver then Build() end
-    seenAway = false
+    seenAway, seenFar = false, false
     PlaceNav()
     Retitle()
     lastX, lastY = nil, nil
@@ -575,7 +602,7 @@ end
 
 local function OnEvent(_, event, isWaypoint)
     if event == "USER_WAYPOINT_UPDATED" then
-        seenAway = false
+        seenAway, seenFar = false, false
         WatchPlaced()
     end
     if event == "NAVIGATION_FRAME_CREATED" then
@@ -698,6 +725,8 @@ Settings.Page("QoL/Interface", S):Card({
           help = "A line from the pin down to a map pin's or corpse's spot." },
         { key = "waypointFadeNear", label = "Fade Up Close", slider = FADE_NEAR_RANGE, unit = "yd",
           help = "Fades the pin as you get this close, so it does not cover what you came for." },
+        { key = "waypointArrive", label = "Arrival Distance", slider = ARRIVE_RANGE, unit = "yd",
+          help = "How close counts as there: a map waypoint clears." },
         { key = "waypointEdge", label = "Edge Arrow Off Screen", toggle = true,
           help = "Keeps the pin at the edge of the screen, pointing the way, when the spot is off it." },
         { key = "waypointNav", label = "Navigator Bar", toggle = true,

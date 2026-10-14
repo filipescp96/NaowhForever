@@ -8,7 +8,6 @@ local BYTE = 255
 local ZONE = Enum.UIMapType.Zone
 local COLORED = "|cff%02x%02x%02x%s|r"
 local FACTION_TABS = { "reputation", "pvp" }
-local SPLIT_OPACITY = { "trackerAlpha", "mapAlpha" }
 local SUBZONES = {
     ["Chamber of Atonement"] = "ScarletMonasteryGraveyard",
     ["Forlorn Cloister"] = "ScarletMonasteryGraveyard",
@@ -44,10 +43,8 @@ local S = ns.UI.ModuleSettings("journal", {
     bossAbilitiesOpen = true,
     repQuestsOpen = true,
     missingBisOnly = false,
-    windowAlpha = 1,
     trackerAlpha = 1,
     trackerScale = 1,
-    mapAlpha = 1,
     listHidden = false,
     closedGroup1 = false,
     closedGroup2 = false,
@@ -95,16 +92,13 @@ local ordered, byKey = {}, {}
 local newBosses = {}
 local byNpc, dungeonOf
 local byMap, byName
-local factions, factionByKey = { reputation = {}, pvp = {} }, {}
+local factions = { reputation = {}, pvp = {} }
 local byZone, byBattleground
 local inFront = {}
 
 local function SplitOpacity()
     local was = S.Raw("windowAlpha")
-    if was == nil then return end
-    for _, key in ipairs(SPLIT_OPACITY) do
-        if S.Raw(key) == nil then S.Set(key, was) end
-    end
+    if was ~= nil and S.Raw("trackerAlpha") == nil then S.Set("trackerAlpha", was) end
 end
 
 local function AddTo(index, id, faction)
@@ -241,7 +235,6 @@ function J.AddFaction(key, faction)
     for _, tier in ipairs(faction.tiers) do tier.faction = faction end
     local list = factions[faction.tab]
     list[#list + 1] = faction
-    factionByKey[key] = faction
 end
 
 function J.Dungeons()
@@ -257,11 +250,6 @@ end
 function J.Factions(tab)
     Joined()
     return factions[tab]
-end
-
-function J.GetFaction(key)
-    Joined()
-    return factionByKey[key]
 end
 
 function J.Levels(dungeon)
@@ -358,7 +346,7 @@ end
 function J.ShowEntrance(dungeon)
     local entrance = dungeon.entrance
     if not entrance then return false end
-    ns.PlaceWaypoint(dungeon.name, entrance.map, entrance.x, entrance.y, TEXT_ENTRANCE)
+    ns.PlaceWaypoint(dungeon.name, entrance.map, entrance.x, entrance.y, TEXT_ENTRANCE, nil, true)
     if not InCombatLockdown() then C_Map.OpenWorldMap(entrance.map) end
     return true
 end

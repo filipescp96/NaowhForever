@@ -7,7 +7,6 @@
     <Script file="Commands.lua"/>
     <Script file="Store.lua"/>
     <Script file="Smart.lua"/>
-    <Script file="Profile.lua"/>
     <Script file="Sharing.lua"/>
     <Script file="View\Style.lua"/>
     <Script file="View\Parts.lua"/>
@@ -18,6 +17,7 @@
     <Script file="UI\List.lua"/>
     <Script file="UI\SpellSuggest.lua"/>
     <Script file="UI\Builder.lua"/>
+    <Script file="UI\Simple.lua"/>
     <Script file="UI\Inspector.lua"/>
     <Script file="UI\Window.lua"/>
     <Script file="UI\SettingsPage.lua"/>
