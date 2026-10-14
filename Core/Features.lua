@@ -157,6 +157,7 @@ ns.FEATURES = {
         ahShiftClick = false,
         craftProfit = false,
         craftProfitList = false,
+        craftROI = false,
         buyMaterials = false,
         buyVendor = false,
         disenchant = false,

@@ -42,6 +42,8 @@ local TEXT_BANNER = "%s %s\n%s%s|r"
 local TEXT_SCAN_FIRST = ns.L("Scan the auction house (Scan Prices) first.")
 local TEXT_UNLEARNED = ns.L("Unlearned Recipes")
 local TEXT_RESET = ns.L("Reset Filters")
+local TEXT_SHOW_ROI = ns.L("Show ROI")
+local TEXT_ROI_SETTINGS = ns.L("ROI Color Thresholds...")
 local TEXT_SEARCH = SEARCH or ns.L("Search")
 local TEXT_NO_MATCH = ns.L("No recipes match.")
 
@@ -143,9 +145,18 @@ local function AddFilter(root, f)
     end)
 end
 
+local function OpenROISettings()
+    ns.OpenOptionsWindow(SETTINGS_PAGE)
+    ns.UI.GoToSetting(SETTINGS_PAGE, nil, SETTINGS_PAGE .. ":buying")
+end
+
 local function FilterMenu(_, root)
     root:CreateTitle(TEXT_FILTER)
     for _, f in ipairs(Filters.LIST) do AddFilter(root, f) end
+    root:CreateDivider()
+    root:CreateCheckbox(TEXT_SHOW_ROI, function() return S.Get("craftROI") == true end,
+        function() ToggleSetting("craftROI") end)
+    root:CreateButton(TEXT_ROI_SETTINGS, OpenROISettings)
     root:CreateDivider()
     root:CreateCheckbox(TEXT_UNLEARNED, function() return S.Get("recipeFinder") == true end,
         function() ToggleSetting("recipeFinder") end)
