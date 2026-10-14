@@ -504,6 +504,17 @@ local win = env.NaowhForeverProfessions
 assert(win and win:IsShown(), "the window opens")
 check("the window lists recipes", calls.render > 0)
 
+settings.recipeAvailability = true
+local bagReads = calls.GetContainerItemInfo
+check("availability marks render", pcall(ns.Professions.List.Render))
+check("availability marks scan bags once", calls.GetContainerItemInfo - bagReads <= 80)
+local shopping = account.profShopping["Tester-Realm"]
+local savedCraft = shopping[recipes[1].spell]
+shopping[recipes[1].spell] = false
+check("a legacy false shopping entry is ignored", pcall(ns.Professions.List.Render))
+shopping[recipes[1].spell] = savedCraft
+settings.recipeAvailability = false
+
 -- A pass of every hot path, also the warm-up before measuring.
 local list = win.list
 local function Scroll()
