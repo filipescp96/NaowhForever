@@ -62,8 +62,8 @@ Shared/
                    (ns.ShowCopyLine)
   UI/Panels.lua    a window's backdrop and its cards (Parts.Backdrop), the panel a view sits in, and the
                    side panel that opens beside a window
-  UI/Window.lua    a window: the frame, its size grip, the title bar with its logo, icons and opacity
-                   slider, the link back to the window it was opened from, and the footer
+  UI/Window.lua    a window: the frame, its size grip, the title bar with its logo and icons, the link
+                   back to the window it was opened from, and the footer
   UI/Forever.lua   the Forever skin's parts, each on the game's own art with a drawn fallback: the window
                    frame with its title bar, portrait and red close (Parts.ForeverFrame), insets, buttons,
                    fields, the search box, tabs, side tabs, check boxes, dropdowns, sliders, swatches, the
@@ -128,7 +128,7 @@ Each file uses only the ones above it in `Shared.xml`. Every part sits on `ns.Sh
   returns a short line for it, or nil: beside a row's control, after a card's summary. A row's
   `labelColor` is a color table for its label (AuraBuffs' class colors and grey).
   A button row's `buttonText` may be a function, read when the row is drawn and again after each
-  click (Glimmer's Show the Cut-Out says Hide while its outline shows).
+  click.
   A card with `into = "<id>"` puts its rows, under a group named for it, in the card of that id on the
   same page, in `order`, instead of drawing a card of its own (QoL's Looting, Vendors, Auction Prices
   and Mail & Alts are one card); it has no switch, and its id still finds the shared card. A card's
@@ -148,7 +148,7 @@ Each file uses only the ones above it in `Shared.xml`. Every part sits on `ns.Sh
   `range` `{ low, high, step }` with `Settings.Snap`, drawn through `live` and saved through `set`
   on release), and a hover mark: `wash` (a faint fill) or `edge` (an accent line down its middle).
   Nothing runs per frame except while dragging. The Campfire's Simple bar preview uses it.
-- **A window:** `Parts.Window`, `Parts.TitleBar`, `Parts.Opacity`, `Parts.BarButton`,
+- **A window:** `Parts.Window`, `Parts.TitleBar`, `Parts.BarButton`,
   `Parts.Logo` (the title bar's logo alone, opening a settings page), `Parts.FooterBrand`, `Parts.Resizable(window, sizeKey, minW, minH, onSized, onReleased)` (a corner
   grip; the size is kept; `onSized` and `onReleased`, run as the grip is let go, are optional). See
   `NaowhForever_BiS/BiS/UI/Window.lua` for a short one.
@@ -166,7 +166,7 @@ Each file uses only the ones above it in `Shared.xml`. Every part sits on `ns.Sh
   | `picker = { values, order, get, set, menuHeight }` | a dropdown under the title or bar: `panel.picker` |
   | `newBody(scroll)` | what scrolls in the body (a row engine view); else a plain frame for `panel:SetRows` |
   | `settings = { page, card, tip, hint }` | the cog in the bottom right, opening that settings page and card |
-  | `opacity()` | its Window Opacity, for `panel:Paint()` |
+  | `opacity()` | its opacity, for `panel:Paint()` |
   | `load()`, `save(point, relativePoint, x, y)`, `place` | its place: read, saved on drag, and the default `{ point, relativePoint, x, y }` |
   | `mover(panel, onMoved)` | Unlock Mode's mover: return `ns.UI.AttachMover(panel, label, onMoved, page)`; it saves through `save` |
   | `maxHeight()` | taller than this, its body scrolls |
@@ -522,6 +522,8 @@ What a comment in the code used to say, in short. The house rules behind it are 
   reload. It replaced the Classic+ skin, and the parts it kept from it keep their `CLASSIC_` names:
   the full-color icons (`CLASSIC_ICONS`, `Parts.ClassicIcon`), the Top Bar's highlight and the
   heading step.
+- `Parts.ClassicIcon` answers false when the name has no icon or this client lacks its file, and
+  the caller keeps its own glyph.
 - It dresses the windows as WoW Forever's own (Talents, Spellbook, Character, Professions) and is
   built on their art. Every atlas is asked for with `C_Texture.GetAtlasInfo` first (once, then
   remembered), and a whole frame only through `NineSliceUtil` when all of its pieces exist; when one

@@ -52,7 +52,6 @@ local MODULES = {
           { name = "Quest Tracker", reuse = true },
           { name = "Map", reuse = true },
       } },
-    -- This hour and the visit history are a window of their own (open); only the settings live here.
     { name = "Instance Tracker", group = "UTILITIES", navIcon = "person", settings = "InstanceTrackerSettings",
       addon = "NaowhForever_InstanceTracker",
       open = "ToggleInstanceTrackerWindow",
@@ -119,10 +118,13 @@ local MODULES = {
       } },
     { name = "Macros", group = "UTILITIES", navIcon = "pen", settings = "MacroSettings",
       addon = "NaowhForever_Macros",
-      open = "ToggleMacroWindow",
+      open = "OpenMacroWindow",
       command = "macros", short = "Macros", icon = "Interface\\Icons\\INV_Misc_Note_01",
-      subtitle = "Naowh's Forge: your macros, checked and explained, and macros kept current for you.",
+      subtitle = "Your macros, checked and explained, and macros kept current for you.",
       tabs = {
+          { name = "My Macros", build = "BuildForgePage", arg = "mine", terms = "ForgeSearchTerms", reuse = true },
+          { name = "Smart Macros", build = "BuildForgePage", arg = "smart", reuse = true },
+          { name = "Library", build = "BuildForgePage", arg = "lib", reuse = true },
           { name = "Settings", reuse = true },
       } },
     { name = "Consumable Bar", group = "UTILITIES", navIcon = "heart", settings = "QoLSettings",
