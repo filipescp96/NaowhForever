@@ -51,7 +51,7 @@ local function Session(settings, opts)
     local log = { frames = {}, writes = {}, timers = {}, confirms = {}, reloads = {}, printed = {} }
     local cvars = {
         SoftTargetInteract = "1", SoftTargetInteractOnlyInRange = "1", SoftTargetInteractRange = "10",
-        SoftTargetInteractArc = "1", SoftTargetNameplateInteract = "0",
+        SoftTargetInteractArc = "1", SoftTargetNameplateInteract = "0", SoftTargetIconGameObject = "0",
         outlineModeShowLootEffectWhenDisabled = "0", graphicsOutlineMode = "2", OutlineEngineMode = "2",
         raidGraphicsOutlineMode = "2", RAIDOutlineEngineMode = "2",
     }
@@ -266,6 +266,8 @@ check("on: the soft target is kept on", cv.SoftTargetInteract == "3" and cv.Soft
 check("on: range and direction from the settings", cv.SoftTargetInteractRange == "15" and cv.SoftTargetInteractArc == "2")
 check("on: the old values are saved", log.account.glimmerSoftCVars.SoftTargetInteract == "1"
     and log.account.glimmerSoftCVars.SoftTargetInteractRange == "10")
+check("on: objects get their nameplate", cv.SoftTargetIconGameObject == "1"
+    and log.account.glimmerSoftCVars.SoftTargetIconGameObject == "0")
 check("on: the quest sparkle is left alone", cv.graphicsOutlineMode == "2" and log.account.glimmerSparkleCVars == nil)
 check("on: no target, no nameplate opened", cv.SoftTargetNameplateInteract == "0")
 
@@ -410,7 +412,8 @@ check("sparkle off: the old values come back", cv.graphicsOutlineMode == "2" and
 -- Off again: everything put back, nothing listening.
 log.Set("enabled", false)
 check("off: the soft target settings come back", cv.SoftTargetInteract == "1" and cv.SoftTargetInteractRange == "10"
-    and cv.SoftTargetInteractOnlyInRange == "1" and log.account.glimmerSoftCVars == nil)
+    and cv.SoftTargetInteractOnlyInRange == "1" and cv.SoftTargetIconGameObject == "0"
+    and log.account.glimmerSoftCVars == nil)
 check("off: dark", Lit(log) == nil)
 check("off: no event left", Registered(log) == 0)
 
@@ -423,6 +426,17 @@ do
     r.RunTimers()
     check("restore: both sets put back", r.cvars.SoftTargetInteract == "1" and r.cvars.graphicsOutlineMode == "2")
     check("restore: Glimmer and the sparkle off", r.S.Get("enabled") == false and r.S.Get("questSparkle") == false)
+end
+
+-- Saved before SoftTargetIconGameObject was one of the settings: it is saved too, and put back.
+do
+    local o = Session({ enabled = true })
+    o.account.glimmerSoftCVars = { SoftTargetInteract = "1", SoftTargetInteractRange = "10" }
+    o.Login()
+    check("old save: the new setting is saved on top", o.account.glimmerSoftCVars.SoftTargetIconGameObject == "0"
+        and o.account.glimmerSoftCVars.SoftTargetInteract == "1" and o.cvars.SoftTargetIconGameObject == "1")
+    o.Set("enabled", false)
+    check("old save: and put back", o.cvars.SoftTargetIconGameObject == "0" and o.account.glimmerSoftCVars == nil)
 end
 
 -- Other addons on the same settings: asked once, then the reload prompt.
@@ -578,40 +592,6 @@ do
     local ring
     for _, f in ipairs(c.frames) do if f.ring and f.shown and f.id then ring = f.ring end end
     check("the ring takes the new color", ring and ring.color[1] == 0.1 and ring.color[3] == 0.3)
-end
-
--- Behind my character: the effect's textures take the cut-out mask, and lose it when it is off.
-do
-    local b = Session({ enabled = true, cutout = true })
-    b.Login()
-    b.game.guid, b.game.plate = GUID(COPPER), Widget(b)
-    b.Fire("PLAYER_SOFT_INTERACT_CHANGED", "", "x")
-    local lit = Lit(b)
-    local masked = lit and lit.cutout and lit.glow.mask == lit.cutout and lit.glints[1].tex.mask == lit.cutout
-        and lit.burst.mask == lit.cutout
-    check("cut-out on: every texture of the effect is masked", masked)
-    check("anchored where the character stands", lit.cutout.point[2] ~= b.game.plate)
-    b.Set("cutout", false)
-    lit = Lit(b)
-    check("cut-out off: no mask", lit and lit.glow.mask == nil and lit.glints[1].tex.mask == nil)
-end
-
--- Show the Cut-Out: a second click takes the outline off at once, and the button says which it does.
-do
-    local o = Session({ enabled = true, cutout = true })
-    o.Login()
-    local Cutout = o.ns.Glimmer.Cutout
-    check("the button offers to show it", Cutout.EdgeText() == "Show" and not Cutout.EdgeShown())
-    Cutout.ToggleEdge()
-    check("clicked: the outline shows, the button offers to hide it", Cutout.EdgeShown() and Cutout.EdgeText() == "Hide")
-    local stale = o.timers[#o.timers]
-    Cutout.ToggleEdge()
-    check("clicked again: it is off at once", not Cutout.EdgeShown() and Cutout.EdgeText() == "Show")
-    Cutout.ToggleEdge()
-    stale()
-    check("the first click's timer leaves a new outline alone", Cutout.EdgeShown())
-    o.RunTimers()
-    check("its own timer takes it off", not Cutout.EdgeShown() and Cutout.EdgeText() == "Show")
 end
 
 print(("test-glimmer: %d checks passed"):format(checks))

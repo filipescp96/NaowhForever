@@ -11,6 +11,7 @@ local S = ns.UI.ModuleSettings("auraBuffs", {
     raidBuffs = F.raidBuffs, raidBuffsOwn = true,
     raidBuffPicks = { intellect = true, stamina = true, spirit = true, wild = true, blessing = false },
     personalBuffs = F.personalBuffs, personalBuffPicks = {}, weaponEnhancements = F.weaponEnhancements,
+    wornReminders = F.wornReminders,
     buffGlow = false, buffGlowType = "standard", buffGlowColor = { r = 1, g = 0.82, b = 0.2 }, buffGlowLines = 8,
     buffGlowThickness = 2, buffGlowSpeed = 5,
     iconSize = 48, buffIconMode = "default", buffsFont = "", buffsFontSize = 14, buffsOutline = "OUTLINE",
@@ -34,7 +35,7 @@ local S = ns.UI.ModuleSettings("auraBuffs", {
     lowHealthFont = "", lowHealthFontSize = 16, lowHealthOutline = "OUTLINE",
     lowHealthSound = true, lowHealthSoundKey = "none",
     lowHealthPos = { point = "BOTTOM", relPoint = "BOTTOM", x = 0, y = 249 },
-    campBuffMode = false, windowAlpha = 1,
+    campBuffMode = false,
 })
 
 local ENTRIES = "consumableEntries"

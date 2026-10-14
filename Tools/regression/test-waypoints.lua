@@ -2,7 +2,8 @@
 -- navigation. Off by default and idle while off; on, it follows the navigation frame with the
 -- name ns.PlaceWaypoint gave the spot, moves to the screen's edge or the behind-you cue while
 -- the spot is off screen, shows the arrival where the pin stood even once the game has cleared
--- the waypoint, ignores stops on the way, and fades the game's own marker only while it is on.
+-- the waypoint, ignores stops on the way, goes within 40 yards of a tracked quest (its area) and
+-- comes back past 55, and fades the game's own marker only while it is on.
 -- These do not emulate rendering or the 3D projection.
 local checks = 0
 local function Check(ok, label) assert(ok, label); checks = checks + 1 end
@@ -51,7 +52,7 @@ function UIParent:GetCenter() return W / 2, H / 2 end
 
 local settings = {}
 local defaults = { enabled = true, waypoints = false, waypointShape = "hex", waypointScale = 1, waypointCard = true,
-    waypointTime = true, waypointBeam = true, waypointFadeNear = 40, waypointEdge = true, waypointNav = true,
+    waypointTime = true, waypointBeam = true, waypointFadeNear = 40, waypointArrive = 5, waypointEdge = true, waypointNav = true,
     waypointSound = "none", waypointHideGame = true }
 local S = {}
 function S.Get(k) if settings[k] ~= nil then return settings[k] end return defaults[k] end
@@ -66,6 +67,7 @@ local tracked, mapOpen, mapHide = {}, false, nil
 local parents = { [1500] = 88 }   -- a leaf zone inside the waypoint's map
 local timers, played, printed = {}, {}, {}
 local speed = 0
+local now = 0
 local tracking = 1   -- Enum.SuperTrackingType.UserWaypoint
 
 local gameMarker = {}
@@ -140,7 +142,7 @@ local env = setmetatable({
     SuperTrackedFrame = gameMarker,
     GetUnitSpeed = function() return speed end,
     issecretvalue = function(v) return v == "secret" end,
-    GetTime = function() return 0 end,
+    GetTime = function() return now end,
     BreakUpLargeNumbers = function(n)
         local s = tostring(n)
         while true do
@@ -206,7 +208,35 @@ Check(pin.card.time.text == "about 0:22", "moving, at your own speed")
 speed = "secret"
 driver.scripts.OnUpdate(driver, 0)
 Check(pin.card.time.text == "about 0:22", "a speed that reads secret keeps the last readable one")
+-- On an epic mount with the speed secret, the last readable speed is the run on foot: the
+-- time comes from how fast the distance shrinks instead.
+speed = 7
+driver.scripts.OnUpdate(driver, 0)
+speed = "secret"
+now = now + 1
+nav.distance = 298
+driver.scripts.OnUpdate(driver, 0)
+Check(pin.card.time.text == "about 0:21", "closing 14 yards a second: the time at that pace")
+now = now + 0.5
+nav.distance = 291
+driver.scripts.OnUpdate(driver, 0)
+Check(pin.card.time.text == "about 0:21", "between samples the pace is kept")
+now = now + 0.5
+nav.distance = 284
+driver.scripts.OnUpdate(driver, 0)
+Check(pin.card.time.text == "about 0:20", "and the time follows the distance")
+now = now + 1
+driver.scripts.OnUpdate(driver, 0)
+Check(pin.card.time.text == "about 0:41", "stopped: back to the last readable speed")
+now = now + 1
+nav.distance = 1300
+driver.scripts.OnUpdate(driver, 0)
+now = now + 1
+nav.distance = 312
+driver.scripts.OnUpdate(driver, 0)
+Check(pin.card.time.text == "about 0:45", "a jump in the distance (a new spot) is not a pace")
 speed = 14
+nav.distance = 312
 Check(navBar:IsShown() and navBar.name.text == "Mage Trainer" and navBar.sub.text == "Thunder Bluff",
     "the navigator names it and its zone")
 Check(navBar.dist.text == "312 yd" and pin.scale < 1 and pin.scale > 0.65, "and shrinks the pin with distance")
@@ -317,9 +347,14 @@ Check(pin.card.dist.text ~= "Arrived" and cleared == clearedBefore and #played =
     "next to a stop on another map the waypoint is left alone")
 -- Placed on a parent map (a continent), standing in a zone inside it: that is the spot's map too.
 playerMap = 1500
-nav.distance = 4
+nav.distance = 15
 driver.scripts.OnUpdate()
-Check(not pin:IsShown() and #played == playedBefore + 1, "within 5 yards it is over at once, with its sound, on a map inside the waypoint's")
+Check(pin.card.dist.text ~= "Arrived" and cleared == clearedBefore, "15 yards out is not there at the default 5")
+-- Arrival Distance moves where it counts as there.
+settings.waypointArrive = 20
+driver.scripts.OnUpdate()
+settings.waypointArrive = nil
+Check(not pin:IsShown() and #played == playedBefore + 1, "within Arrival Distance it is over at once, with its sound, on a map inside the waypoint's")
 Check(cleared == clearedBefore + 1 and superCleared >= 1, "and the waypoint is cleared")
 -- The clear waits while the world map is open: standing there, nothing repeats.
 Check(driver.scripts.OnUpdate == nil and cleared == clearedBefore + 1, "the pin stops following, and does not arrive or clear again")
@@ -338,6 +373,21 @@ Check(cleared == clearedBefore, "on a route's stop the pin clears nothing itself
 routeInfo = nil
 nav.distance = was
 tracking = 1
+cleared, superCleared = 0, 0
+
+-- Placed inside a long Arrival Distance: not there at once, it arrives at the usual 5 yards.
+settings.waypointArrive = 100
+userWaypoint = { uiMapID = playerMap, position = { x = 0.5, y = 0.5 } }
+events.scripts.OnEvent(events, "NAVIGATION_FRAME_DESTROYED")
+nav.frame, nav.distance = navFrame, 60
+events.scripts.OnEvent(events, "NAVIGATION_FRAME_CREATED")
+driver.scripts.OnUpdate()
+Check(pin:IsShown() and cleared == 0, "placed 60 yards away with Arrival Distance at 100: still up")
+nav.distance = 4
+driver.scripts.OnUpdate()
+Check(cleared == 1, "it clears within 5 yards")
+settings.waypointArrive = nil
+nav.distance = was
 cleared, superCleared = 0, 0
 
 -- A stop on a route: the navigator says which, and the arrival names the next stop, or says the
@@ -394,6 +444,21 @@ nav.clamped, nav.x, nav.y = false, 1100, 700
 nav.distance = far
 driver.scripts.OnUpdate()
 Check(pin:IsShown(), "walking away brings it back")
+-- A quest's area: Forever reports a quest reached only right on its point, so the pin goes within
+-- 40 yards of it and comes back past 55, wherever you walk about the area.
+nav.distance = 50
+driver.scripts.OnUpdate()
+Check(pin:IsShown(), "coming toward a quest, 50 yards out it still points there")
+nav.distance = 39
+driver.scripts.OnUpdate()
+Check(not pin:IsShown() and not cue:IsShown(), "within 40 yards, in the quest's area, it goes")
+nav.distance = 54
+driver.scripts.OnUpdate()
+Check(not pin:IsShown(), "walking about the area does not bring it back")
+nav.distance = 56
+driver.scripts.OnUpdate()
+Check(pin:IsShown(), "past 55 yards it comes back")
+nav.distance = far
 
 -- A corpse is on the ground: lifted with its line, and it does not go up close.
 tracking = 2

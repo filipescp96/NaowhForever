@@ -13,6 +13,7 @@ import paths  # noqa: E402
 
 OUT = os.path.join(paths.ROOT, "Core", "Media")
 RXP_OUT = os.path.join(paths.ROOT, "Core", "Integrations", "RestedXP", "Media")
+ONBOARDING_OUT = os.path.join(paths.ROOT, "Core", "Onboarding", "Media")
 
 NAOWH_BLUE = (0x00, 0x91, 0xED)
 
@@ -45,25 +46,6 @@ def disc(x, y, size):
     a = smooth(c - 0.5, d)
     v = int(round(255 * a))
     return (255, 255, 255, v)
-
-
-def half_disc(x, y, size):
-    # Right half of a disc: the sweep piece. Two of these, each clipped to one half of
-    # the ring and rotated, draw any arc without per-frame geometry.
-    c = size / 2.0
-    d = math.hypot(x - c, y - c)
-    a = smooth(c - 0.5, d) if x >= c else 0.0
-    return (255, 255, 255, int(round(255 * a)))
-
-
-def hole(x, y, size):
-    # Thickness mask: transparent inside the inscribed disc, opaque outside it. Drawn
-    # smaller than the ring and wrapped CLAMPTOWHITE, so it punches the centre out and
-    # leaves everything beyond its own rect visible.
-    c = size / 2.0
-    d = math.hypot(x - c, y - c)
-    a = 1.0 - smooth(c - 0.5, d)
-    return (255, 255, 255, int(round(255 * a)))
 
 
 def gear(x, y, size):
@@ -240,16 +222,6 @@ def funnel(x, y, size):
     d = min(seg_dist(x, y, points[i][0] * size, points[i][1] * size, points[i + 1][0] * size,
                      points[i + 1][1] * size) for i in range(len(points) - 1))
     return (255, 255, 255, int(round(255 * smooth(w / 2, d))))
-
-
-def half_circle(x, y, size):
-    # A ring with its left half filled: the Journal's Opacity.
-    c = size / 2.0
-    d = math.hypot(x - c, y - c)
-    r, w = size * 0.36, size * 0.075
-    ring = smooth(w / 2, abs(d - r))
-    fill = smooth(r, d) if x < c else 0.0
-    return (255, 255, 255, int(round(255 * max(ring, fill))))
 
 
 def ellipse_dist(x, y, cx, cy, rx, ry):
@@ -707,8 +679,6 @@ write_tga(os.path.join(OUT, "cross.tga"), 64, lambda x, y, s: max(
     stroke(64, [(0.26, 0.74), (0.74, 0.26)], 0.11)(x, y, s), key=lambda p: p[3]))
 write_tga(os.path.join(OUT, "check.tga"), 64, stroke(64, [(0.18, 0.5), (0.4, 0.72), (0.82, 0.28)], 0.13))
 write_tga(os.path.join(OUT, "circle_mask.tga"), 128, disc)
-write_tga(os.path.join(OUT, "circle_half.tga"), 256, half_disc)
-write_tga(os.path.join(OUT, "circle_hole.tga"), 256, hole)
 write_tga(os.path.join(OUT, "cog.tga"), 64, gear)
 write_tga(os.path.join(OUT, "icon.tga"), 64, icon)
 write_tga(os.path.join(OUT, "chevron.tga"), 64, chevron)
@@ -719,7 +689,6 @@ write_tga(os.path.join(OUT, "hanger.tga"), 64, hanger)
 write_tga(os.path.join(OUT, "sidebar_shown.tga"), 64, sidebar(True))
 write_tga(os.path.join(OUT, "sidebar_hidden.tga"), 64, sidebar(False))
 write_tga(os.path.join(OUT, "funnel.tga"), 64, funnel)
-write_tga(os.path.join(OUT, "opacity.tga"), 64, half_circle)
 write_tga(os.path.join(OUT, "skull.tga"), 64, skull)
 write_tga(os.path.join(OUT, "star.tga"), 64, star)
 write_tga(os.path.join(OUT, "swords.tga"), 64, crossed_swords)
@@ -740,8 +709,8 @@ write_tga(os.path.join(OUT, "wand.tga"), 64, wand)
 write_tga(os.path.join(OUT, "scales.tga"), 64, scales)
 write_wide_tga(os.path.join(OUT, "infinity.tga"), 32, 16, infinity)
 write_wide_tga(os.path.join(OUT, "infinity_outlined.tga"), 32, 16, infinity_outlined)
-write_wide_tga(os.path.join(OUT, "Welcome", "infinity_track.tga"), 256, 128, infinity_track(256, 128), samples=2)
-write_tga(os.path.join(OUT, "Welcome", "glow_dot.tga"), 64, glow_dot)
+write_wide_tga(os.path.join(ONBOARDING_OUT, "infinity_track.tga"), 256, 128, infinity_track(256, 128), samples=2)
+write_tga(os.path.join(ONBOARDING_OUT, "glow_dot.tga"), 64, glow_dot)
 write_wide_tga(os.path.join(OUT, "elbow.tga"), 8, 8, elbow)
 write_tga(os.path.join(OUT, "speaker.tga"), 64, speaker)
 write_tga(os.path.join(OUT, "play.tga"), 64, play)
@@ -870,7 +839,7 @@ SETUP_ICONS = {
     "back": line_icon(path([(0.82, 0.5), (0.2, 0.5)]), arrow_head((0.2, 0.5), (0.82, 0.5), 0.3, 42), width=0.13),
 }
 
-SETUP_OUT = os.path.join(OUT, "Setup")
+SETUP_OUT = os.path.join(ONBOARDING_OUT, "Setup")
 os.makedirs(SETUP_OUT, exist_ok=True)
 for name, pixel in SETUP_ICONS.items():
     write_tga(os.path.join(SETUP_OUT, name + ".tga"), 64, pixel)
@@ -940,26 +909,9 @@ def glimmer_bracket(x, y, size):
     return (255, 255, 255, int(round(255 * max(top, left))))
 
 
-def glimmer_capsule_dist(x, y, size):
-    # Distance outside an upright capsule, the shape a character stands in; negative inside.
-    c, half_w, half_h = size / 2.0, size * 0.2, size * 0.45
-    dy = max(abs(y - c) - (half_h - half_w), 0.0)
-    return math.hypot(x - c, dy) - half_w
-
-
-def glimmer_cutout(x, y, size):
-    a = max(0.0, min(1.0, glimmer_capsule_dist(x, y, size) / (size * 0.04) + 0.5))
-    return (255, 255, 255, int(round(255 * a)))
-
-
-def glimmer_cutout_edge(x, y, size):
-    return (255, 255, 255, int(round(255 * smooth(size * 0.012, abs(glimmer_capsule_dist(x, y, size))))))
-
-
 GLIMMER_TEXTURES = {
     "glow": glimmer_glow, "flare": glimmer_flare, "ring": glimmer_ring,
     "beam": glimmer_beam, "bracket": glimmer_bracket,
-    "cutout": glimmer_cutout, "cutout_edge": glimmer_cutout_edge,
 }
 os.makedirs(GLIMMER_OUT, exist_ok=True)
 for name, pixel in GLIMMER_TEXTURES.items():
