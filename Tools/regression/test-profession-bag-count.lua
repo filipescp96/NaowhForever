@@ -4,19 +4,19 @@ local bagStacks = {
     [1] = { { itemID = 100, stackCount = 1 }, { itemID = 200, stackCount = 4 } },
 }
 
-function wipe(t) for key in pairs(t) do t[key] = nil end return t end
-NUM_BAG_SLOTS = 4
-C_Container = {
+rawset(_G, "wipe", function(t) for key in pairs(t) do t[key] = nil end return t end)
+rawset(_G, "NUM_BAG_SLOTS", 4)
+rawset(_G, "C_Container", {
     GetContainerNumSlots = function(bag) return #(bagStacks[bag] or {}) end,
     GetContainerItemInfo = function(bag, slot) return (bagStacks[bag] or {})[slot] end,
-}
-C_Item = {
+})
+rawset(_G, "C_Item", {
     GetItemCount = function(itemID, includeBank)
         if itemID ~= 100 then return 0 end
         return includeBank and 6 or 4
     end,
-}
-C_TradeSkillUI = {}
+})
+rawset(_G, "C_TradeSkillUI", {})
 
 local ns = {
     L = function(text) return text end,
