@@ -227,8 +227,8 @@ page:Card({
         { key = "buyVendor", label = "Buy at Vendor", toggle = true, needs = On, why = TEXT_OFF,
           help = "While a merchant is open, a Buy button under the chosen recipe's reagents buys from them, in "
               .. "one click, every checked reagent they sell, such as Coarse Thread or Weak Flux, for as many "
-              .. "crafts as you set beside it. The total cost shows beside the button; hover Buy for each "
-              .. "reagent." },
+              .. "crafts as you set beside it. If that merchant sells reagents missing from the Crafting Queue, "
+              .. "a side panel also offers per-item Buy buttons and Buy All. Costs are shown before purchase." },
     },
 })
 

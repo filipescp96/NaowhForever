@@ -60,6 +60,7 @@ NaowhForever_Professions/
     ShoppingAdd.lua    Add to Crafting Queue under a recipe, and the button that opens the shopping list
     ShoppingWindow.lua the Shopping List window: crafts, other items, materials (ns.ToggleShoppingList)
     CraftQueue.lua     the standalone crafting queue, missing-material tooltips and click-driven controls
+    VendorQueue.lua    queue-required reagents sold by the open merchant, with Buy and Buy All controls
     ShoppingConsumables.lua the Consumables picker beside the Shopping List
     ShoppingList.lua   the shopping list beside the auction house: check and buy
     TrainFavorites.lua Train Favorites beside the trainer

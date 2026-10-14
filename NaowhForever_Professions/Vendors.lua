@@ -15,6 +15,7 @@ local MERCHANT_EVENTS = { "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED" 
 local MERCHANT_KEYS = { enabled = true, vendorMaterials = true, craftProfit = true, buyVendor = true }
 
 local merchant
+local queueList, queuePool, buyList, buyPool = {}, {}, {}, {}
 
 local function LearnedVendorItems()
     local account = ns.AccountSettings()
@@ -90,6 +91,60 @@ local function Find(itemID)
     end
 end
 
+local function QueueList(onlyItem)
+    local materials = P.CraftQueue and P.CraftQueue.VendorMaterials and P.CraftQueue.VendorMaterials() or {}
+    local n, total = 0, 0
+    for _, material in ipairs(materials) do
+        if not onlyItem or material.item == onlyItem then
+            local index, price, stack, available = Find(material.item)
+            if index then
+                local buys = math.ceil(material.qty / stack)
+                if available >= 0 then buys = math.min(buys, available) end
+                if buys > 0 then
+                    n = n + 1
+                    local entry = queuePool[n] or {}
+                    queuePool[n] = entry
+                    entry.index, entry.itemID = index, material.item
+                    entry.want, entry.count = material.qty, buys * stack
+                    entry.cost, entry.short = buys * price, available >= 0 and buys * stack < material.qty
+                    queueList[n] = entry
+                    total = total + entry.cost
+                end
+            end
+        end
+    end
+    for i = n + 1, #queueList do queueList[i] = nil end
+    return queueList, total
+end
+
+local function BuyEntries(list, total)
+    if #list == 0 then return false end
+    if GetMoney() < total then
+        ns.Print(TEXT_TOO_DEAR:format(Text.Money(total)))
+        return false
+    end
+    for index, entry in ipairs(list) do
+        local purchase = buyPool[index] or {}
+        buyPool[index] = purchase
+        purchase.index, purchase.itemID, purchase.count = entry.index, entry.itemID, entry.count
+        buyList[index] = purchase
+    end
+    for index = #list + 1, #buyList do buyList[index] = nil end
+    local parts = {}
+    for _, entry in ipairs(buyList) do
+        local left = entry.count
+        local most = math.max(1, GetMerchantItemMaxStack(entry.index) or left)
+        while left > 0 do
+            local n = math.min(left, most)
+            BuyMerchantItem(entry.index, n)
+            left = left - n
+        end
+        parts[#parts + 1] = TEXT_PART:format(entry.count, R.Link(entry.itemID))
+    end
+    ns.Print(TEXT_BOUGHT:format(table.concat(parts, ", "), Text.Money(total)))
+    return true
+end
+
 local function List(recipeID, crafts, topUp)
     local out, total, owned = {}, 0, R.Owned()
     local ok, reagents = pcall(R.Reagents, recipeID)
@@ -115,20 +170,17 @@ end
 
 local function Buy(recipeID, crafts, topUp)
     local list, total = List(recipeID, crafts, topUp)
-    if #list == 0 then return end
-    if GetMoney() < total then return ns.Print(TEXT_TOO_DEAR:format(Text.Money(total))) end
-    local parts = {}
-    for _, e in ipairs(list) do
-        local left = e.count
-        local most = math.max(1, GetMerchantItemMaxStack(e.index) or left)
-        while left > 0 do
-            local n = math.min(left, most)
-            BuyMerchantItem(e.index, n)
-            left = left - n
-        end
-        parts[#parts + 1] = TEXT_PART:format(e.count, R.Link(e.itemID))
-    end
-    ns.Print(TEXT_BOUGHT:format(table.concat(parts, ", "), Text.Money(total)))
+    return BuyEntries(list, total)
+end
+
+local function BuyQueueItem(itemID)
+    local list, total = QueueList(itemID)
+    return BuyEntries(list, total)
+end
+
+local function BuyQueueAll()
+    local list, total = QueueList()
+    return BuyEntries(list, total)
 end
 
 P.Vendors = {
@@ -139,6 +191,9 @@ P.Vendors = {
     List = List,
     Sells = Sells,
     Buy = Buy,
+    QueueList = QueueList,
+    BuyQueueItem = BuyQueueItem,
+    BuyQueueAll = BuyQueueAll,
 }
 
 ns.ProfWindowAPI.IsVendorItem = IsVendorItem

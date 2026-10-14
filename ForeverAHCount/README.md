@@ -43,6 +43,8 @@ The crafting queue builds on Naowh's standalone Shopping List, including its dir
 
 When queued crafts still need merchant reagents whose known vendor price is no higher than their auction-house price, the Shopping List adds a live **Buy from Vendor** section. It totals the shortage across regular and prerequisite crafts, subtracts what is already in the character's bags, and shows the known vendor cost.
 
+Opening a merchant that sells any of those shortages also opens a compact panel beside the merchant window. Each row can be bought directly, or **Buy All** purchases every needed reagent that this merchant currently sells; limited stock, vendor bundles, total cost, available gold, bag changes, and merchant changes are accounted for before the controls update.
+
 Learned recipes receive small status markers in the left recipe list for shopping-list crafts, crafting-queue crafts, and crafted output already held in bags or bank. Hovering a marker shows its relevant quantity, including separate bag and bank counts. Equipped items are deliberately excluded from the bag count because equipped crafted gear is normally soulbound and cannot be sold.
 
 ## Crafting Queue
