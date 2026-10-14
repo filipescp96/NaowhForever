@@ -135,4 +135,11 @@ assert(queue.OnPurchased() == true, "ready shopping craft was not promoted")
 assert(shoppingList[100] == nil and shoppingList[101] ~= nil, "promotion did not stay recipe-specific")
 assert(queue.List().crafts[100] ~= nil, "promoted craft was not placed in the queue")
 
+shoppingList[102] = { name = "Queued", count = 1, fromQueue = true }
+queue.Clear()
+assert(next(queue.List().prerequisites) == nil and next(queue.List().crafts) == nil,
+    "Clear did not empty the crafting queue")
+assert(shoppingList[102] == nil, "Clear did not remove queue-generated shopping entries")
+assert(shoppingList[101] ~= nil, "Clear removed an unrelated Shopping List entry")
+
 print("Crafting queue regression test: PASS")

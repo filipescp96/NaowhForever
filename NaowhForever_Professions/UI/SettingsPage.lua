@@ -216,7 +216,8 @@ page:Card({
         { key = "shoppingList", label = "Shopping List", toggle = true, needs = On, why = TEXT_OFF,
           help = "Adds \"- [1] + Add to Crafting Queue\" under a recipe's reagents. Missing auction-house "
               .. "materials go to the standalone Shopping List, including its item entry and Consumables "
-              .. "picker. Queued crafts and cheaper prerequisites remain beside the profession window." },
+              .. "picker. A second top-bar button opens the standalone Crafting Queue, which stays open "
+              .. "when the profession window closes." },
         Group("Vendors"),
         { key = "vendorMaterials", label = "Crafts with Vendor Buys", toggle = true, needs = On,
           why = TEXT_OFF,

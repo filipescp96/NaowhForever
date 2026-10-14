@@ -272,10 +272,7 @@ local function Activate(mode)
     pf:SetAlpha(0)
     win:SetAlpha(1)
     local linked = mode == "linked"
-    local queueShown = mode == "craft" and S.Get("shoppingList") and P.CraftQueueView ~= nil
-    local width = linked and (Style.WINDOW_W + Style.ORDER_W + Style.PAD)
-        or queueShown and (Style.WINDOW_W + P.CraftQueueView.WIDTH + Style.PAD)
-        or Style.WINDOW_W
+    local width = linked and (Style.WINDOW_W + Style.ORDER_W + Style.PAD) or Style.WINDOW_W
     if not InCombatLockdown() then
         win:SetSize(math.max(width, pf:GetWidth()), math.max(Style.MIN_H, pf:GetHeight()))
     end
@@ -289,7 +286,6 @@ local function Activate(mode)
     W.linked = linked
     win.rank:SetWidth(width - Style.PAD * 2 - RANK_INSET * 2)
     win.order:SetShown(linked)
-    if P.CraftQueueView then P.CraftQueueView.SetShown(queueShown) end
     DockTabs(true)
     local book = mode == "book"
     ShowParts(book, linked)

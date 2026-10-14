@@ -59,7 +59,7 @@ NaowhForever_Professions/
     Takeover.lua       showing it over Blizzard's window, docking Blizzard's tabs and cards, dragging, events
     ShoppingAdd.lua    Add to Crafting Queue under a recipe, and the button that opens the shopping list
     ShoppingWindow.lua the Shopping List window: crafts, other items, materials (ns.ToggleShoppingList)
-    CraftQueue.lua     the docked crafting queue, missing-material tooltips and click-driven controls
+    CraftQueue.lua     the standalone crafting queue, missing-material tooltips and click-driven controls
     ShoppingConsumables.lua the Consumables picker beside the Shopping List
     ShoppingList.lua   the shopping list beside the auction house: check and buy
     TrainFavorites.lua Train Favorites beside the trainer

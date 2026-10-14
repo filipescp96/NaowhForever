@@ -433,6 +433,17 @@ SyncShopping = function()
     Shopping.Redraw()
 end
 
+local function Clear()
+    local mine = Mine()
+    running, active = nil, nil
+    runID = runID + 1
+    events:UnregisterAllEvents()
+    wipe(mine.prerequisites)
+    wipe(mine.crafts)
+    wipe(skipped)
+    SyncShopping()
+end
+
 local function AddWithShopping(info, count)
     Add(info, count, nil, true)
     SyncShopping()
@@ -446,6 +457,7 @@ Queue.Add = Add
 Queue.AddWithShopping = AddWithShopping
 Queue.Step = Step
 Queue.Remove = Remove
+Queue.Clear = Clear
 Queue.Requirements = Requirements
 Queue.Ordered = Ordered
 Queue.Click = Click

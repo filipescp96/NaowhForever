@@ -1,7 +1,9 @@
--- CraftQueue.lua: the crafting queue docked to Naowh's profession window.
+-- CraftQueue.lua: the standalone crafting queue window and its click-driven controls.
 local ns = _G.NaowhForever
 
 local T = ns.THEME
+local Shared = ns.Shared
+local Parts, St = Shared.Parts, Shared.Style
 
 local P = ns.Professions
 local S = P.Settings
@@ -11,52 +13,57 @@ local Text = P.Text
 local Style = P.Style
 local Widgets = P.Widgets
 
-local WIDTH = 260
+local PAGE = "Professions/Settings"
+local WIDTH, MIN_H, MAX_H = 380, 190, 520
+local HEADER, PAD, FOOTER, SCROLLBAR = St.WINDOW_HEADER, St.WINDOW_PAD, St.WINDOW_FOOTER, St.SCROLLBAR
+local INSET = St.CONTENT_INSET
+local CARD_INSET = 6
+local BOTTOM_H = 34
+local SCROLL_GAP = 4
 local ROW_H = 20
-local ROW_X = 8
 local ROW_SHRINK = 2
 local ICON_SHRINK = Style.ROW_ICON_SHRINK
 local NAME_GAP = Style.ICON_NAME_GAP
-local TITLE_X, TITLE_DROP = 10, 10
-local LIST_DROP, LIST_BOTTOM = 34, 50
-local SCROLLBAR_ROOM = 22
-local SCROLL_STEP = ROW_H * 3
-local HEAD_X, HEAD_STEP = 10, 18
+local HEAD_X, HEAD_STEP = 4, 18
 local SECTION_GAP = 8
+local ROW_X = 2
 local SMALL_BUTTON = 16
 local STEP_GAP, MINUS_GAP = 6, 2
-local BUTTON_EDGE = 10
-local SHOP_W, START_W = 112, 94
+local CLEAR_W, START_W = 68, 94
+local BUTTON_H = 24
+local EMPTY_H = 48
 
 local TEXT_TITLE = ns.L("Crafting Queue")
+local TEXT_SUBTITLE = ns.L("Prerequisites first, then your queued crafts.")
 local TEXT_PREREQUISITES = ns.L("Pre-requisite Crafts")
 local TEXT_CRAFTS = ns.L("Crafts")
-local TEXT_EMPTY = ns.L("Crafts you add appear here. Their missing materials are added to the Shopping List.")
+local TEXT_EMPTY = ns.L("Crafts you add appear here. Their missing auction-house materials go to the Shopping List.")
 local TEXT_ROW = "%dx %s"
 local TEXT_UNKNOWN = "?"
 local TEXT_START = ns.L("Start Queue")
 local TEXT_RUNNING = ns.L("Crafting...")
 local TEXT_NEXT = ns.L("Craft Next")
-local TEXT_SHOPPING = ns.L("Shopping List")
+local TEXT_CLEAR = ns.L("Clear")
 local TEXT_MISSING = ns.L("Missing Materials")
 local TEXT_HAVE = ns.L("%d / %d")
 local TEXT_VENDOR_COST = ns.L("Vendor cost: %s")
 local TEXT_VENDOR_UNKNOWN = ns.L("Vendor price unknown")
+local TEXT_OFF = ns.L("Turn on the Shopping List in the Professions settings first.")
 local TIP_REMOVE, TIP_REMOVE_HELP = ns.L("Remove"), ns.L("Takes this craft and its materials off the queue.")
 local TIP_MORE, TIP_MORE_HELP = ns.L("One More"), ns.L("Adds the materials for one more craft.")
 local TIP_FEWER, TIP_FEWER_HELP = ns.L("One Fewer"), ns.L("Takes the materials for one craft off the queue.")
 local TIP_START_HELP = ns.L("Start Queue prepares the first ready prerequisite or craft. Then click Craft Next "
-    .. "once for each prepared batch, as required by Blizzard; entries with missing materials are skipped.")
-local TIP_SHOPPING_HELP = ns.L("Opens Naowh's Shopping List, including items and consumables.")
+    .. "once for each prepared batch, as required by Blizzard; entries with missing materials are skipped. "
+    .. "The profession window must be open to craft.")
+local TIP_CLEAR_HELP = ns.L("Empties the crafting queue and removes its materials from the Shopping List.")
 
-local View = { WIDTH = WIDTH }
+local View = {}
 P.CraftQueueView = View
 
-local panel, scroll, content, empty, start
+local window, scroll, content, empty, start, clear, events
 local heads = {}
 local pools = { prerequisites = {}, crafts = {} }
 local sectionEntries = { prerequisites = {}, crafts = {} }
-local events
 
 local function On()
     return S.Get("enabled") and S.Get("shoppingList")
@@ -100,7 +107,7 @@ local function NewRow(pool, index)
     local row = pool[index]
     if row then return row end
     row = CreateFrame("Frame", nil, content)
-    row:SetSize(WIDTH - ROW_X * 2 - SCROLLBAR_ROOM, ROW_H - ROW_SHRINK)
+    row:SetHeight(ROW_H - ROW_SHRINK)
     row:EnableMouse(true)
     row.warning = CreateFrame("Button", nil, row)
     row.warning:SetSize(SMALL_BUTTON, SMALL_BUTTON)
@@ -181,6 +188,7 @@ local function PlaceSection(prerequisite, y)
             Widgets.EnableButton(row.minus, editing and entry.count > 1)
             row:ClearAllPoints()
             row:SetPoint("TOPLEFT", ROW_X, y)
+            row:SetPoint("TOPRIGHT", -ROW_X, y)
             row:Show()
             y = y - ROW_H
         elseif row then
@@ -190,27 +198,28 @@ local function PlaceSection(prerequisite, y)
     return y, #entries
 end
 
+local function ProfessionOpen()
+    local frame = P.State.frame
+    return frame and frame:IsShown() and not P.State.linked
+end
+
 function View.Render()
-    if not panel then return end
-    local y, prerequisites = PlaceSection(true, 0)
+    if not (window and window:IsShown()) then return end
+    local y, prerequisites = PlaceSection(true, -2)
     local crafts
     y, crafts = PlaceSection(false, y)
     local count = prerequisites + crafts
+    local contentHeight = count > 0 and (-y + SECTION_GAP) or EMPTY_H
+    content:SetHeight(math.max(1, contentHeight))
     empty:SetShown(count == 0)
-    scroll:SetShown(count > 0)
-    content:SetHeight(math.max(scroll:GetHeight(), -y + SECTION_GAP))
-    if scroll.UpdateScrollChildRect then scroll:UpdateScrollChildRect() end
-    local range = scroll:GetVerticalScrollRange() or 0
-    if scroll:GetVerticalScroll() > range then scroll:SetVerticalScroll(range) end
+    local desired = HEADER + PAD + contentHeight + PAD + BOTTOM_H + FOOTER
+    window:SetHeight(math.max(MIN_H, math.min(MAX_H, desired)))
     local active = Queue.Active()
     ns.SetButtonText(start, Queue.Running() and (active and active.started and TEXT_RUNNING or TEXT_NEXT)
         or TEXT_START)
-    Widgets.EnableButton(start, count > 0 and (not Queue.Running() or (active and not active.started)))
-end
-
-local function ScrollWheel(self, delta)
-    local range = self:GetVerticalScrollRange() or 0
-    self:SetVerticalScroll(math.max(0, math.min(range, self:GetVerticalScroll() - delta * SCROLL_STEP)))
+    Widgets.EnableButton(start, ProfessionOpen() and count > 0
+        and (not Queue.Running() or (active and not active.started)))
+    Widgets.EnableButton(clear, count > 0 and not Queue.Running())
 end
 
 local function BuildHead(key, text)
@@ -219,50 +228,70 @@ local function BuildHead(key, text)
     heads[key] = head
 end
 
-function View.Attach(win)
-    if panel then return end
-    panel = CreateFrame("Frame", nil, win)
-    panel:SetPoint("TOPLEFT", win.mid, "TOPRIGHT", Style.PAD, 0)
-    panel:SetPoint("BOTTOMLEFT", win.mid, "BOTTOMRIGHT", Style.PAD, 0)
-    panel:SetWidth(WIDTH)
-    ns.Solid(panel, "BACKGROUND", T.panel, Style.PANEL_ALPHA):SetAllPoints()
-    local title = ns.Font(panel, Style.FONT_HEAD, nil, T.accent)
-    title:SetPoint("TOPLEFT", TITLE_X, -TITLE_DROP)
-    title:SetText(TEXT_TITLE)
-    scroll = CreateFrame("ScrollFrame", nil, panel)
-    scroll:SetPoint("TOPLEFT", 0, -LIST_DROP)
-    scroll:SetPoint("BOTTOMRIGHT", -2, LIST_BOTTOM)
-    scroll:EnableMouseWheel(true)
-    scroll:SetScript("OnMouseWheel", ScrollWheel)
+local function BuildBody()
+    scroll = ns.UI.SlimScroll(window)
+    scroll:SetPoint("TOPLEFT", INSET, -(HEADER + PAD))
+    scroll:SetPoint("BOTTOMRIGHT", -SCROLLBAR - SCROLL_GAP, FOOTER + PAD + BOTTOM_H)
     content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(WIDTH - SCROLLBAR_ROOM, 1)
+    content:SetSize(WIDTH - INSET - SCROLLBAR - SCROLL_GAP, 1)
     scroll:SetScrollChild(content)
     BuildHead("prerequisites", TEXT_PREREQUISITES)
     BuildHead("crafts", TEXT_CRAFTS)
-    empty = ns.Font(panel, Style.FONT, nil, T.muted)
-    empty:SetPoint("TOPLEFT", TITLE_X, -LIST_DROP)
-    empty:SetWidth(WIDTH - TITLE_X * 2)
+    empty = ns.Font(window, Style.FONT, nil, T.muted)
+    empty:SetPoint("CENTER", scroll, "CENTER")
+    empty:SetWidth(WIDTH - 2 * INSET)
     empty:SetJustifyH("LEFT")
     empty:SetWordWrap(true)
     empty:SetText(TEXT_EMPTY)
-    start = ns.Button(panel, TEXT_START, START_W, Style.BUTTON_H, Queue.Click)
-    start:SetPoint("BOTTOMRIGHT", -BUTTON_EDGE, BUTTON_EDGE)
-    ns.Tooltip(start, TEXT_START, TIP_START_HELP)
-    local shopping = ns.Button(panel, TEXT_SHOPPING, SHOP_W, Style.BUTTON_H, ns.ToggleShoppingList)
-    shopping:SetPoint("BOTTOMLEFT", BUTTON_EDGE, BUTTON_EDGE)
-    ns.Tooltip(shopping, TEXT_SHOPPING, TIP_SHOPPING_HELP)
-    events = CreateFrame("Frame")
-    events:SetScript("OnEvent", View.Render)
-    panel:HookScript("OnShow", function()
-        events:RegisterEvent("BAG_UPDATE_DELAYED")
-        View.Render()
-    end)
-    panel:HookScript("OnHide", function() events:UnregisterAllEvents() end)
-    panel:Hide()
 end
 
-function View.SetShown(shown)
-    if panel then panel:SetShown(shown and On()) end
+local function BuildFooter()
+    clear = ns.Button(window, TEXT_CLEAR, CLEAR_W, BUTTON_H, Queue.Clear)
+    clear:SetPoint("BOTTOMRIGHT", -INSET, FOOTER + PAD)
+    ns.Tooltip(clear, TEXT_CLEAR, TIP_CLEAR_HELP)
+    start = ns.Button(window, TEXT_START, START_W, BUTTON_H, Queue.Click)
+    start:SetPoint("RIGHT", clear, "LEFT", -PAD, 0)
+    ns.Tooltip(start, TEXT_START, TIP_START_HELP)
+end
+
+local function OnShow()
+    events:RegisterEvent("BAG_UPDATE_DELAYED")
+    events:RegisterEvent("TRADE_SKILL_SHOW")
+    events:RegisterEvent("TRADE_SKILL_CLOSE")
+    View.Render()
+end
+
+local function OnHide()
+    events:UnregisterAllEvents()
+end
+
+local function Build()
+    window = Parts.Window(WIDTH, MIN_H, "craftQueueWindow")
+    window.backdrop:Card(CARD_INSET, HEADER + CARD_INSET, CARD_INSET, FOOTER + CARD_INSET)
+    Parts.TitleBar(window, TEXT_TITLE, TEXT_SUBTITLE, PAGE)
+    Parts.FooterBrand(window, PAGE)
+    BuildBody()
+    BuildFooter()
+    events = CreateFrame("Frame")
+    events:SetScript("OnEvent", View.Render)
+    window:HookScript("OnShow", OnShow)
+    window:HookScript("OnHide", OnHide)
+end
+
+function ns.OpenCraftQueue()
+    if not On() then return ns.Print(TEXT_OFF) end
+    if not window then Build() end
+    window:SetScale(ns.UIScale())
+    window:Show()
+    window.backdrop:Paint(1)
+end
+
+function ns.ToggleCraftQueue()
+    if window and window:IsShown() then window:Hide() else ns.OpenCraftQueue() end
+end
+
+function View.Hide()
+    if window then window:Hide() end
 end
 
 Queue.Render = function()
@@ -271,6 +300,5 @@ Queue.Render = function()
 end
 
 Shopping.OnChange(function()
-    if P.Detail and P.Detail.UpdateShoppingCount then P.Detail.UpdateShoppingCount() end
     if P.List and P.List.UpdateShoppingMarkers then P.List.UpdateShoppingMarkers() end
 end)
