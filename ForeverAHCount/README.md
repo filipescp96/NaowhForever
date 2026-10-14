@@ -41,6 +41,8 @@ Naowh Forever's **Favorite Patterns** Auction House panel can scan the complete 
 
 The crafting queue builds on Naowh's standalone Shopping List, including its direct item entry and Consumables picker. Adding a craft to the queue automatically adds its missing auction-house materials to that window without replacing its native features.
 
+When queued crafts still need merchant reagents whose known vendor price is no higher than their auction-house price, the Shopping List adds a live **Buy from Vendor** section. It totals the shortage across regular and prerequisite crafts, subtracts what is already in the character's bags, and shows the known vendor cost.
+
 Learned recipes receive small status markers in the left recipe list for shopping-list crafts, crafting-queue crafts, and crafted output already held in bags or bank. Hovering a marker shows its relevant quantity, including separate bag and bank counts. Equipped items are deliberately excluded from the bag count because equipped crafted gear is normally soulbound and cannot be sold.
 
 ## Crafting Queue

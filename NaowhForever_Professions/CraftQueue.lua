@@ -13,6 +13,7 @@ local QUEUE_DELAY = C.QUEUE_DELAY or 0.2
 local TEXT_UNKNOWN = "?"
 local TEXT_NOTHING = ns.L("Nothing in the crafting queue can be crafted with the materials in your bags.")
 local EMPTY = {}
+local vendorMaterials, vendorPool, vendorNeeded = {}, {}, {}
 
 local Queue = {}
 P.CraftQueue = Queue
@@ -193,6 +194,43 @@ local function Ordered()
         return (a.name or "") < (b.name or "")
     end)
     return out
+end
+
+local function AddVendorNeeds(bucket)
+    for _, entry in pairs(bucket) do
+        for itemID, per in pairs(entry.need or EMPTY) do
+            if V.IsVendorItem(itemID) and not Shopping.ShouldBuyAH(itemID) then
+                vendorNeeded[itemID] = (vendorNeeded[itemID] or 0) + per * (tonumber(entry.count) or 1)
+            end
+        end
+    end
+end
+
+local function VendorMaterials()
+    wipe(vendorNeeded)
+    local mine = Mine()
+    AddVendorNeeds(mine.prerequisites)
+    AddVendorNeeds(mine.crafts)
+    local n = 0
+    local prices = V.Prices()
+    for itemID, total in pairs(vendorNeeded) do
+        local missing = math.max(0, total - R.ItemCount(itemID))
+        if missing > 0 then
+            n = n + 1
+            local material = vendorPool[n] or {}
+            vendorPool[n] = material
+            material.item, material.qty = itemID, missing
+            material.name = R.ItemName(itemID) or ("Item " .. itemID)
+            material.price = prices[itemID]
+            vendorMaterials[n] = material
+        end
+    end
+    for i = n + 1, #vendorMaterials do vendorMaterials[i] = nil end
+    table.sort(vendorMaterials, function(a, b)
+        if a.name ~= b.name then return a.name < b.name end
+        return a.item < b.item
+    end)
+    return vendorMaterials
 end
 
 local function FinishActive()
@@ -460,6 +498,7 @@ Queue.Remove = Remove
 Queue.Clear = Clear
 Queue.Requirements = Requirements
 Queue.Ordered = Ordered
+Queue.VendorMaterials = VendorMaterials
 Queue.Click = Click
 Queue.Running = function() return running and true or false end
 Queue.Active = function() return active end

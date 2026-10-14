@@ -4,6 +4,7 @@ local inventory = { [2000] = 0, [3000] = 0, [4000] = 0, [5000] = 0 }
 local crafts = {}
 local account = {}
 local shoppingList, shoppingHave = {}, {}
+local ahCheaper = {}
 local selected, quantity
 local craftHook
 
@@ -82,7 +83,7 @@ local ns = {
             Trim = function() end,
             Redraw = function() end,
             Add = function() end,
-            ShouldBuyAH = function() return true end,
+            ShouldBuyAH = function(id) return ahCheaper[id] or id ~= 4000 end,
         },
         Vendors = {
             IsVendorItem = function(id) return id == 4000 end,
@@ -104,6 +105,15 @@ local _, missing, missingVendor, vendorCost = queue.Requirements(list.crafts[100
 assert(missing == true, "missing materials were not detected")
 assert(missingVendor == true, "missing vendor material was not detected")
 assert(vendorCost == 50, "vendor price was not calculated for the missing quantity")
+local vendorMaterials = queue.VendorMaterials()
+assert(vendorMaterials[1] and vendorMaterials[1].item == 4000 and vendorMaterials[1].qty == 2,
+    "vendor-cheaper queue shortage was not listed")
+assert(vendorMaterials[1].price == 25, "vendor material price was not included")
+inventory[4000] = 1
+assert(queue.VendorMaterials()[1].qty == 1, "owned vendor materials were not subtracted")
+ahCheaper[4000], inventory[4000] = true, 0
+assert(#queue.VendorMaterials() == 0, "AH-cheaper vendor material was still listed for vendor purchase")
+ahCheaper[4000] = nil
 
 inventory[5000], inventory[3000], inventory[4000] = 4, 4, 2
 queue.Click()
