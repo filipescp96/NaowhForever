@@ -187,7 +187,8 @@ page:Card({
         Group("Return on Investment"),
         { key = "craftROI", label = "Show ROI", toggle = true, needs = ProfitOn,
           why = "Needs Crafting Profit",
-          help = "Shows profit as a percentage of the materials' cost." },
+          help = "Shows the selected recipe's profit as a percentage of the materials' cost, under its "
+              .. "profit." },
         { key = "roiGreyBelow", label = "Grey Below", slider = ROI_RANGE, unit = "%", needs = ROIOn,
           why = "Needs Show ROI",
           help = "ROI below this percentage is grey." },

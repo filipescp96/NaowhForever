@@ -154,10 +154,12 @@ local function FilterMenu(_, root)
     root:CreateTitle(TEXT_FILTER)
     for _, f in ipairs(Filters.LIST) do AddFilter(root, f) end
     root:CreateDivider()
-    root:CreateCheckbox(TEXT_SHOW_ROI, function() return S.Get("craftROI") == true end,
-        function() ToggleSetting("craftROI") end)
-    root:CreateButton(TEXT_ROI_SETTINGS, OpenROISettings)
-    root:CreateDivider()
+    if S.Get("craftProfit") then
+        root:CreateCheckbox(TEXT_SHOW_ROI, function() return S.Get("craftROI") == true end,
+            function() ToggleSetting("craftROI") end)
+        root:CreateButton(TEXT_ROI_SETTINGS, OpenROISettings)
+        root:CreateDivider()
+    end
     root:CreateCheckbox(TEXT_UNLEARNED, function() return S.Get("recipeFinder") == true end,
         function() ToggleSetting("recipeFinder") end)
     root:CreateButton(TEXT_RESET, ResetFilters)

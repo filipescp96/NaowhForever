@@ -177,6 +177,7 @@ function Lines.RenderProfit(block, recipeID, output, made)
     elseif block.roi then
         block.roi:Hide()
     end
+    block:SetHeight(Lines.ProfitHeight())
     Lines.Fit(block.lines)
     block:Show()
 end

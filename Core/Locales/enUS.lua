@@ -2,6 +2,14 @@
 local L = _G.NaowhForeverLocale or {}
 _G.NaowhForeverLocale = L
 
+L["Return on Investment"] = true
+L["Shows the selected recipe's profit as a percentage of the materials' cost, under its profit."] = true
+L["Grey Below"] = true
+L["ROI below this percentage is grey."] = true
+L["Green From"] = true
+L["ROI from this percentage is green; the range below it is yellow."] = true
+L["Needs Show ROI"] = true
+L["(%.0f%% ROI)"] = true
 L["Worn Gear Reminder"] = true
 L["An icon while you wear Cloak of Hermitic Bliss in Wailing Caverns, so you remember to swap it."] = true
 L["You are wearing this."] = true

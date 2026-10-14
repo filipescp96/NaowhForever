@@ -10,10 +10,10 @@ local AH_CUT = 0.05
 local FROM_VENDOR, FROM_AH = "vendor", "ah"
 local DEFAULT_ROI_GREY_BELOW, DEFAULT_ROI_GREEN_FROM = 10, 30
 local PERCENT = 100
+local TEXT_ROI = ns.L("(%.0f%% ROI)")
 
 local EMPTY = {}
 local profitCache = {}
-local costCache = {}
 
 local function AuctionPrice(itemID)
     return ns.AuctionPrice and ns.AuctionPrice(itemID)
@@ -84,10 +84,7 @@ local function RecipeProfit(recipeID, output, made)
         local ok, reagents = pcall(R.Reagents, recipeID)
         if each and ok and #reagents > 0 then
             local cost, missing = ReagentCost(reagents)
-            if missing == 0 then
-                profit = AfterCut(each, made or 1) - cost
-                if S.Get("craftROI") then costCache[recipeID] = cost end
-            end
+            if missing == 0 then profit = AfterCut(each, made or 1) - cost end
         end
         profitCache[recipeID] = profit
     end
@@ -97,19 +94,6 @@ end
 local function ROI(profit, cost)
     if type(profit) ~= "number" or type(cost) ~= "number" or cost <= 0 then return end
     return profit / cost * PERCENT
-end
-
-local function RecipeROI(recipeID, output, made)
-    if not S.Get("craftROI") then return end
-    local profit = RecipeProfit(recipeID, output, made)
-    if profit == nil then return end
-    local cost = costCache[recipeID]
-    if cost == nil then
-        profitCache[recipeID] = nil
-        profit = RecipeProfit(recipeID, output, made)
-        cost = costCache[recipeID]
-    end
-    return ROI(profit, cost)
 end
 
 local function ROIThresholds()
@@ -129,12 +113,11 @@ end
 
 local function ROIText(roi)
     if type(roi) ~= "number" then return end
-    return ("(%.0f%% ROI)"):format(roi)
+    return TEXT_ROI:format(roi)
 end
 
 local function ClearCache()
     wipe(profitCache)
-    wipe(costCache)
 end
 
 P.Prices = {
@@ -144,7 +127,6 @@ P.Prices = {
     CraftValue = CraftValue,
     RecipeProfit = RecipeProfit,
     ROI = ROI,
-    RecipeROI = RecipeROI,
     ROIThresholds = ROIThresholds,
     ROIBand = ROIBand,
     ROIText = ROIText,

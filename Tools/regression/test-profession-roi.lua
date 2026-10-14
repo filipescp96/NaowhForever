@@ -6,6 +6,7 @@ local settings = { craftProfit = true, craftROI = false, roiGreyBelow = 10, roiG
 local prices = { [10] = 100, [20] = 250 }
 _G.wipe = function(t) for key in pairs(t) do t[key] = nil end return t end
 _G.NaowhForever = {
+    L = function(text) return text end,
     AuctionScanTime = function() return 1 end,
     AuctionPrice = function(item) return prices[item] end,
     Professions = {
@@ -29,11 +30,7 @@ Check("ROI from 10% is yellow", Prices.ROIBand(10) == "yellow")
 Check("ROI below 30% remains yellow", Prices.ROIBand(29.9) == "yellow")
 Check("ROI from 30% is green", Prices.ROIBand(30) == "green")
 Check("ROI text is rounded", Prices.ROIText(12.6) == "(13% ROI)")
-Check("recipe ROI is idle while disabled", Prices.RecipeROI(1, 20, 1) == nil)
 
-settings.craftROI = true
-Prices.ClearCache()
-Check("recipe ROI uses the cached recipe cost", Prices.RecipeROI(1, 20, 1) == 18.5)
 settings.roiGreyBelow, settings.roiGreenFrom = 20, 50
 Check("custom grey threshold is used", Prices.ROIBand(19) == "muted")
 Check("custom yellow threshold is used", Prices.ROIBand(20) == "yellow")

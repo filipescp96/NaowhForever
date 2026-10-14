@@ -41,11 +41,6 @@ local TEXT_REQUIRED = ns.L("Required skill: %d  (%s)")
 
 local win
 local rows = {}
-local ROI_COLORS = {
-    muted = T.muted,
-    yellow = Style.GOLD_RGB,
-    green = Style.PROFIT_RGB,
-}
 
 local List = {}
 P.List = List
@@ -57,13 +52,7 @@ end
 local function ListProfit(recipeID, output, made)
     local profit = not W.linked and S.Get("craftProfitList") and Prices.RecipeProfit(recipeID, output, made)
     if not profit then return "", T.fg end
-    local text = Text.Money(profit, true)
-    local roi = Prices.RecipeROI(recipeID, output, made)
-    if roi and roi >= 0 then
-        local color = ROI_COLORS[Prices.ROIBand(roi)] or T.muted
-        text = text .. " " .. Text.Hex(color) .. Prices.ROIText(roi) .. "|r"
-    end
-    return text, profit >= 0 and Style.PROFIT_RGB or Style.RED_RGB
+    return Text.Money(profit, true), profit >= 0 and Style.PROFIT_RGB or Style.RED_RGB
 end
 
 local function FormatCraftCount(info)

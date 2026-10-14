@@ -128,9 +128,9 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   at the last scan; the auction house keeps 5% of a sale. Profit is cached per recipe until the next
   full draw, so scrolling and the filter do not price every recipe again. Reagents unchecked in the
   pane are ones you have, left out of every recipe's cost.
-- ROI is profit divided by the materials' cost. It starts off, omits losses from the compact recipe
-  list, and keeps losses red in the selected recipe. Grey below 10% and green from 30% leave the
-  middle band yellow; both thresholds are player settings.
+- ROI is profit divided by the materials' cost. It starts off and shows only under the selected
+  recipe's profit, losses in red: the list rows have no room for it beside a full profit. Grey below
+  10% and green from 30% leave the middle band yellow; both thresholds are player settings.
 - Merchants teach the vendor reagents: trade goods sold for gold without a stock limit are kept
   account-wide, with their price when Crafting Profit is on. Merchant events are registered only
   while the module and one of Crafts with Vendor Buys, Crafting Profit or Buy at Vendor are on.
