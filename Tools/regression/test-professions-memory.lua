@@ -497,6 +497,17 @@ account.profShopping = { ["Tester-Realm"] = {
         need = { [BROKEN] = 1, [REAGENTS[3]] = 2, [REAGENTS[4]] = 3, [REAGENTS[9]] = 1 } },
 } }
 
+-- With Recipe Availability Marks on, a Shopping List change before the recipe window is ever
+-- built, as from /nf shopping after a reload, has no list to draw.
+settings.recipeAvailability = true
+local listRenders = 0
+local listRender = ns.Professions.List.Render
+ns.Professions.List.Render = function() listRenders = listRenders + 1 return listRender() end
+check("a shopping change before the window is built does not error",
+    pcall(ns.Professions.Shopping.Step, recipes[1].spell, 0))
+check("and draws no recipe list", listRenders == 0)
+settings.recipeAvailability = false
+
 Fire("PLAYER_LOGIN")
 Fire("AUCTION_HOUSE_SHOW")
 Advance(0.5)
@@ -739,6 +750,11 @@ Step()
 local r4 = calls.render
 for _ = 1, 50 do UnrelatedLoad(); BagUpdate() end
 check("with the window closed, item loads and bag updates draw nothing", calls.render == r4)
+settings.recipeAvailability = true
+local lr = listRenders
+ns.Professions.Shopping.Step(recipes[1].spell, 0)
+check("with the window closed, a shopping change draws no recipe list", listRenders == lr)
+settings.recipeAvailability = false
 
 check("the recipe window's logo opens the Professions settings", logoPage == "Professions/Settings")
 

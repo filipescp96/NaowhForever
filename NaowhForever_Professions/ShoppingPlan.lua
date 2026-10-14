@@ -3,7 +3,6 @@ local ns = _G.NaowhForever
 
 local P = ns.Professions
 local C = P.C
-local S = P.Settings
 local Text = P.Text
 
 local MAX_DEPTH = 4
@@ -324,7 +323,6 @@ end
 
 local function Redraw()
     if Shopping.Render then Shopping.Render() end
-    if S and S.Get and S.Get("recipeAvailability") and P.List and P.List.Render then P.List.Render() end
     Changed()
 end
 

@@ -379,3 +379,7 @@ function List.Build(frame, below)
 end
 
 List.RedrawAll = RedrawAll
+
+P.Shopping.OnChange(function()
+    if win and win:IsShown() and S.Get("recipeAvailability") then List.Render() end
+end)
