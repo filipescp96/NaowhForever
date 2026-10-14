@@ -9,9 +9,11 @@ local Shopping = P.Shopping
 local V = P.Vendors
 
 local MAX_DEPTH = 4
+local PLAN_VERSION = 2
 local QUEUE_DELAY = C.QUEUE_DELAY or 0.2
 local TEXT_UNKNOWN = "?"
 local TEXT_NOTHING = ns.L("Nothing in the crafting queue can be crafted with the materials in your bags.")
+local TEXT_OPEN_REQUIRED = ns.L("Open the required profession manually, then click Craft Next again.")
 local EMPTY = {}
 local vendorMaterials, vendorPool, vendorNeeded = {}, {}, {}
 
@@ -82,6 +84,22 @@ local function AddEntry(bucket, recipeID, count, fallback)
     return entry
 end
 
+local function MergeDuplicateRecipes(mine)
+    for recipeID, prerequisite in pairs(mine.prerequisites) do
+        local craft = mine.crafts[recipeID]
+        if craft then
+            local room = math.max(0, C.MAX_CRAFTS - (tonumber(prerequisite.count) or 0))
+            local standalone = math.min(room, tonumber(craft.count) or 0)
+            prerequisite.count = (tonumber(prerequisite.count) or 0) + standalone
+            prerequisite.standalone = (tonumber(prerequisite.standalone) or 0) + standalone
+            for _, key in ipairs({ "name", "icon", "need", "output", "made", "prof" }) do
+                if prerequisite[key] == nil then prerequisite[key] = craft[key] end
+            end
+            mine.crafts[recipeID] = nil
+        end
+    end
+end
+
 local function RequirementPlan(recipeID, count, bucket, inventory, visiting, depth)
     if depth >= MAX_DEPTH or visiting[recipeID] then return end
     visiting[recipeID] = true
@@ -106,18 +124,34 @@ local function RequirementPlan(recipeID, count, bucket, inventory, visiting, dep
     visiting[recipeID] = nil
 end
 
+local function RebuildPrerequisites(mine)
+    for recipeID, prerequisite in pairs(mine.prerequisites) do
+        local standalone = tonumber(prerequisite.standalone) or 0
+        if standalone > 0 then AddEntry(mine.crafts, recipeID, standalone, prerequisite) end
+    end
+    wipe(mine.prerequisites)
+    local crafts = {}
+    for _, entry in pairs(mine.crafts) do crafts[#crafts + 1] = entry end
+    table.sort(crafts, function(a, b) return (a.name or "") < (b.name or "") end)
+    local inventory = {}
+    for _, entry in ipairs(crafts) do
+        RequirementPlan(entry.recipeID, tonumber(entry.count) or 1, mine.prerequisites, inventory, {}, 0)
+    end
+    MergeDuplicateRecipes(mine)
+    mine.planVersion = PLAN_VERSION
+end
+
+local function EnsurePlan(mine)
+    if mine.planVersion ~= PLAN_VERSION then RebuildPrerequisites(mine) end
+end
+
 local function Add(info, count, prerequisite, defer)
     if not (info and info.recipeID) then return end
     local mine = Mine()
+    EnsurePlan(mine)
     count = math.max(1, math.min(C.MAX_CRAFTS, tonumber(count) or 1))
-    if not prerequisite then
-        local inventory = {}
-        for _, reagent in ipairs(R.Reagents(info.recipeID) or EMPTY) do
-            inventory[reagent.itemID] = R.ItemCount(reagent.itemID)
-        end
-        RequirementPlan(info.recipeID, count, mine.prerequisites, inventory, {}, 0)
-    end
     AddEntry(prerequisite and mine.prerequisites or mine.crafts, info.recipeID, count, info)
+    if prerequisite then MergeDuplicateRecipes(mine) else RebuildPrerequisites(mine) end
     if not defer then Redraw() end
 end
 
@@ -127,20 +161,37 @@ local function Bucket(prerequisite)
 end
 
 local function Step(recipeID, prerequisite, by)
-    local bucket = Bucket(prerequisite)
+    local mine = Mine()
+    EnsurePlan(mine)
+    local bucket = prerequisite and mine.prerequisites or mine.crafts
     local entry = bucket[recipeID]
     if not entry then return end
-    entry.count = math.max(1, math.min(C.MAX_CRAFTS, (tonumber(entry.count) or 1) + by))
+    local old = tonumber(entry.count) or 1
+    entry.count = math.max(1, math.min(C.MAX_CRAFTS, old + by))
+    local delta = entry.count - old
+    if entry.prerequisite and entry.standalone ~= nil then
+        entry.standalone = math.max(0, math.min(entry.count, (tonumber(entry.standalone) or 0) + delta))
+    end
+    if active and not active.started and active.recipeID == recipeID and active.prerequisite == prerequisite then
+        active.requested = entry.count
+        local frame = W.frame
+        if frame and frame.qty then frame.qty:SetText(tostring(entry.count)) end
+    end
+    if not prerequisite then RebuildPrerequisites(mine) end
     SyncShopping()
 end
 
 local function Remove(recipeID, prerequisite)
-    Bucket(prerequisite)[recipeID] = nil
+    local mine = Mine()
+    EnsurePlan(mine)
+    local bucket = prerequisite and mine.prerequisites or mine.crafts
+    bucket[recipeID] = nil
     if active and active.recipeID == recipeID and active.prerequisite == prerequisite then
         running, active = nil, nil
         runID = runID + 1
         events:UnregisterAllEvents()
     end
+    if not prerequisite then RebuildPrerequisites(mine) end
     SyncShopping()
 end
 
@@ -183,6 +234,7 @@ end
 
 local function Ordered()
     local mine, out = Mine(), {}
+    EnsurePlan(mine)
     for _, prerequisite in ipairs({ true, false }) do
         for _, entry in pairs(prerequisite and mine.prerequisites or mine.crafts) do
             entry.prerequisite = prerequisite
@@ -209,6 +261,7 @@ end
 local function VendorMaterials()
     wipe(vendorNeeded)
     local mine = Mine()
+    EnsurePlan(mine)
     AddVendorNeeds(mine.prerequisites)
     AddVendorNeeds(mine.crafts)
     local n = 0
@@ -238,7 +291,10 @@ local function FinishActive()
     local bucket = Bucket(active.prerequisite)
     local entry = bucket[active.recipeID]
     if entry then
-        entry.count = (tonumber(entry.count) or 1) - 1
+        local count = tonumber(entry.count) or 1
+        local standalone = tonumber(entry.standalone) or 0
+        if standalone > 0 and count - standalone <= 0 then entry.standalone = standalone - 1 end
+        entry.count = count - 1
         if entry.count <= 0 then bucket[active.recipeID] = nil end
     end
     active.done = active.done + 1
@@ -266,6 +322,14 @@ end
 local function OnCraftEvent(_, event, unit, _, spellID)
     if not (running and active) then return end
     if event == "BAG_UPDATE_DELAYED" then return Redraw() end
+    if event == "TRADE_SKILL_CLOSE" then
+        if active.started then
+            local entry = Bucket(active.prerequisite)[active.recipeID]
+            active.requested = entry and (tonumber(entry.count) or 1) or active.requested
+            active.done, active.started = 0, false
+        end
+        return Redraw()
+    end
     if not active.started then return end
     if unit ~= "player" or spellID ~= active.recipeID then return end
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
@@ -282,6 +346,22 @@ local function SelectForCrafting(entry)
     if P.Detail and P.Detail.Render then P.Detail.Render() end
     local frame = W.frame
     if frame and frame.qty then frame.qty:SetText(tostring(entry.count)) end
+end
+
+local function CraftContextReady(entry)
+    local frame = _G.ProfessionsFrame
+    if not (frame and frame:IsShown()) or W.linked then return false end
+    local profession = R.Profession()
+    if not profession or (entry.prof and profession.id ~= entry.prof) then return false end
+    local selected = R.SelectedInfo()
+    return selected and selected.recipeID == entry.recipeID
+end
+
+local function PrepareCraftContext(entry)
+    SelectForCrafting(entry)
+    if CraftContextReady(entry) then return true end
+    ns.Print(TEXT_OPEN_REQUIRED)
+    return false
 end
 
 function PrepareNext()
@@ -307,6 +387,7 @@ local function OnCraftRequested(recipeID, count)
     if not (running and active and recipeID == active.recipeID) then return end
     local entry = Bucket(active.prerequisite)[active.recipeID]
     if not entry then return Stop() end
+    if not CraftContextReady(entry) then return end
     active.requested = math.min(tonumber(count) or 1, tonumber(entry.count) or 1)
     active.done, active.started = 0, true
     Redraw()
@@ -320,6 +401,7 @@ local function Start()
     events:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
     events:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
     events:RegisterEvent("BAG_UPDATE_DELAYED")
+    events:RegisterEvent("TRADE_SKILL_CLOSE")
     Redraw()
     PrepareNext()
 end
@@ -328,16 +410,16 @@ local function Click()
     if InCombatLockdown and InCombatLockdown() then return end
     if not running then
         Start()
+        if running and active then
+            local entry = Bucket(active.prerequisite)[active.recipeID]
+            if entry and not CraftContextReady(entry) then PrepareCraftContext(entry) end
+        end
         return
     end
     if not (active and not active.started) then return end
-    local selected = R.SelectedInfo()
-    if not (selected and selected.recipeID == active.recipeID) then
-        local entry = Bucket(active.prerequisite)[active.recipeID]
-        if not entry then return Stop() end
-        SelectForCrafting(entry)
-        return
-    end
+    local entry = Bucket(active.prerequisite)[active.recipeID]
+    if not entry then return Stop() end
+    if not PrepareCraftContext(entry) then return end
     -- This is intentionally called only from the Craft Next button's physical
     -- click.  It is the same hardware-event craft path used by Naowh's Create
     -- button; queue progression itself never invokes a protected craft action.
@@ -421,6 +503,7 @@ local function ImportShopping()
         end
     end
     if not promoted then return false end
+    RebuildPrerequisites(mine)
     Shopping.Trim()
     Redraw()
     Shopping.Redraw()
@@ -433,6 +516,7 @@ end
 
 SyncShopping = function()
     local mine, list = Mine(), Shopping.List()
+    EnsurePlan(mine)
     local legacyCounts = {}
     for recipeID, craft in pairs(list) do
         if craft.fromQueue or mine.crafts[recipeID] then
@@ -442,20 +526,29 @@ SyncShopping = function()
     end
 
     local entries = {}
-    for _, entry in pairs(mine.crafts) do entries[#entries + 1] = entry end
-    table.sort(entries, function(a, b) return (a.name or "") < (b.name or "") end)
+    for _, entry in pairs(mine.crafts) do
+        entries[#entries + 1] = { entry = entry, count = tonumber(entry.count) or 1 }
+    end
+    for _, entry in pairs(mine.prerequisites) do
+        if (tonumber(entry.standalone) or 0) > 0 then
+            entries[#entries + 1] = { entry = entry, count = tonumber(entry.standalone) }
+        end
+    end
+    table.sort(entries, function(a, b) return (a.entry.name or "") < (b.entry.name or "") end)
 
     local inventory = {}
     local purchased = Shopping.Have()
-    for _, entry in ipairs(entries) do
+    for _, candidate in ipairs(entries) do
+        local entry = candidate.entry
         for itemID in pairs(entry.need or EMPTY) do
             if inventory[itemID] == nil then
                 inventory[itemID] = math.max(0, R.ItemCount(itemID) - (purchased[itemID] or 0))
             end
         end
     end
-    for _, entry in ipairs(entries) do
-        local count = math.max(tonumber(entry.count) or 1, legacyCounts[entry.recipeID] or 0)
+    for _, candidate in ipairs(entries) do
+        local entry = candidate.entry
+        local count = math.max(candidate.count, legacyCounts[entry.recipeID] or 0)
         local got = {}
         for itemID, per in pairs(entry.need or EMPTY) do
             local want = per * count
@@ -487,12 +580,19 @@ local function AddWithShopping(info, count)
     SyncShopping()
 end
 
+local function AddMissingToShopping()
+    EnsurePlan(Mine())
+    SyncShopping()
+    return true
+end
+
 events:SetScript("OnEvent", OnCraftEvent)
 if hooksecurefunc then hooksecurefunc(C_TradeSkillUI, "CraftRecipe", OnCraftRequested) end
 
 Queue.List = Mine
 Queue.Add = Add
 Queue.AddWithShopping = AddWithShopping
+Queue.AddMissingToShopping = AddMissingToShopping
 Queue.Step = Step
 Queue.Remove = Remove
 Queue.Clear = Clear
@@ -502,6 +602,11 @@ Queue.VendorMaterials = VendorMaterials
 Queue.Click = Click
 Queue.Running = function() return running and true or false end
 Queue.Active = function() return active end
+Queue.Ready = function()
+    if not active then return false end
+    local entry = Bucket(active.prerequisite)[active.recipeID]
+    return entry and CraftContextReady(entry) and true or false
+end
 Queue.MarkSkipped = MarkSkipped
 Queue.ResetSkipped = ResetSkipped
 Queue.OnPurchased = OnPurchased

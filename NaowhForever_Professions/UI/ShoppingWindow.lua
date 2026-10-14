@@ -60,7 +60,7 @@ local TEXT_MAKE, TEXT_BUY = ns.L("Make"), ns.L("Buy")
 local TEXT_ADD = ns.L("Add")
 local TEXT_NOT_FOUND = ns.L("No item found for that. Use a link, an item ID, or the name of an item you have seen.")
 local TEXT_OFF = ns.L("Turn on the Shopping List in the Professions settings first.")
-local TIP_CLEAR_HELP = ns.L("Empties the shopping list.")
+local TIP_CLEAR_HELP = ns.L("Empties the shopping list and its crafting queue, including vendor shortages.")
 local TIP_REMOVE, TIP_REMOVE_HELP = ns.L("Remove"), ns.L("Takes this craft and its materials off the list.")
 local TIP_MORE, TIP_MORE_HELP = ns.L("One More"), ns.L("Adds the materials for one more craft.")
 local TIP_FEWER, TIP_FEWER_HELP = ns.L("One Fewer"), ns.L("Takes the materials for one craft off the list.")
@@ -361,7 +361,7 @@ local function RenderWindow()
         or #materials > 0 or #vendorMaterials > 0 or next(made) ~= nil
     empty:SetShown(not listed)
     total:SetText(#materials > 0 and Shopping.Estimate(materials, TEXT_UNPRICED) or "")
-    clear:SetShown(#crafts > 0 or #items > 0)
+    clear:SetShown(listed)
 end
 
 local function ResolveItem(text)

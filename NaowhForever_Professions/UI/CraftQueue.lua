@@ -43,7 +43,10 @@ local TEXT_UNKNOWN = "?"
 local TEXT_START = ns.L("Start Queue")
 local TEXT_RUNNING = ns.L("Crafting...")
 local TEXT_NEXT = ns.L("Craft Next")
+local TEXT_OPEN = ns.L("Open First")
 local TEXT_CLEAR = ns.L("Clear")
+local TEXT_ADD_MISSING = ns.L("Add Missing to SL")
+local TEXT_ADD_MISSING_SHORT = ns.L("Missing to SL")
 local TEXT_MISSING = ns.L("Missing Materials")
 local TEXT_HAVE = ns.L("%d / %d")
 local TEXT_VENDOR_COST = ns.L("Vendor cost: %s")
@@ -54,13 +57,16 @@ local TIP_MORE, TIP_MORE_HELP = ns.L("One More"), ns.L("Adds the materials for o
 local TIP_FEWER, TIP_FEWER_HELP = ns.L("One Fewer"), ns.L("Takes the materials for one craft off the queue.")
 local TIP_START_HELP = ns.L("Start Queue prepares the first ready prerequisite or craft. Then click Craft Next "
     .. "once for each prepared batch, as required by Blizzard; entries with missing materials are skipped. "
-    .. "The profession window must be open to craft.")
+    .. "If the required profession is closed, open it manually before clicking Craft Next; Blizzard blocks "
+    .. "addons from opening it for you.")
 local TIP_CLEAR_HELP = ns.L("Empties the crafting queue and removes its materials from the Shopping List.")
+local TIP_ADD_MISSING_HELP = ns.L("Refreshes the Shopping List with materials missing for this queue. "
+    .. "Each material is routed to the auction house or a vendor using the cheaper known price.")
 
 local View = {}
 P.CraftQueueView = View
 
-local window, scroll, content, empty, start, clear, events
+local window, scroll, content, empty, start, clear, addMissing, events
 local heads = {}
 local pools = { prerequisites = {}, crafts = {} }
 local sectionEntries = { prerequisites = {}, crafts = {} }
@@ -182,7 +188,8 @@ local function PlaceSection(prerequisite, y)
             row.name:SetText(TEXT_ROW:format(entry.count, entry.name or TEXT_UNKNOWN))
             row.warning:SetShown(missing)
             row.warning.entry = entry
-            local editing = not Queue.Running()
+            local active = Queue.Active()
+            local editing = not (active and active.started)
             Widgets.EnableButton(row.remove, editing)
             Widgets.EnableButton(row.plus, editing)
             Widgets.EnableButton(row.minus, editing and entry.count > 1)
@@ -198,11 +205,6 @@ local function PlaceSection(prerequisite, y)
     return y, #entries
 end
 
-local function ProfessionOpen()
-    local frame = P.State.frame
-    return frame and frame:IsShown() and not P.State.linked
-end
-
 function View.Render()
     if not (window and window:IsShown()) then return end
     local y, prerequisites = PlaceSection(true, -2)
@@ -213,11 +215,16 @@ function View.Render()
     content:SetHeight(math.max(1, contentHeight))
     empty:SetShown(count == 0)
     local active = Queue.Active()
-    ns.SetButtonText(start, Queue.Running() and (active and active.started and TEXT_RUNNING or TEXT_NEXT)
-        or TEXT_START)
-    Widgets.EnableButton(start, ProfessionOpen() and count > 0
-        and (not Queue.Running() or (active and not active.started)))
-    Widgets.EnableButton(clear, count > 0 and not Queue.Running())
+    local running = Queue.Running()
+    local crafting = running and active and active.started
+    local startText = TEXT_START
+    if running then
+        startText = crafting and TEXT_RUNNING or (Queue.Ready() and TEXT_NEXT or TEXT_OPEN)
+    end
+    ns.SetButtonText(start, startText)
+    Widgets.EnableButton(start, count > 0 and (not running or (active and not active.started)))
+    Widgets.EnableButton(clear, count > 0 and not crafting)
+    Widgets.EnableButton(addMissing, count > 0 and not crafting)
 end
 
 local function BuildHead(key, text)
@@ -250,10 +257,15 @@ local function BuildFooter()
     start = ns.Button(window, TEXT_START, START_W, BUTTON_H, Queue.Click)
     start:SetPoint("BOTTOMRIGHT", -INSET, FOOTER + PAD)
     ns.Tooltip(start, TEXT_START, TIP_START_HELP)
+    addMissing = ns.Button(window, TEXT_ADD_MISSING, 120, BUTTON_H, Queue.AddMissingToShopping)
+    addMissing:SetPoint("LEFT", clear, "RIGHT", PAD, 0)
+    addMissing:SetPoint("RIGHT", start, "LEFT", -PAD, 0)
+    ns.Tooltip(addMissing, TEXT_ADD_MISSING, TIP_ADD_MISSING_HELP)
 end
 
 local function OnSized(_, width)
     content:SetWidth(width - INSET - SCROLLBAR - SCROLL_GAP)
+    ns.SetButtonText(addMissing, width < WIDTH and TEXT_ADD_MISSING_SHORT or TEXT_ADD_MISSING)
 end
 
 local function OnShow()

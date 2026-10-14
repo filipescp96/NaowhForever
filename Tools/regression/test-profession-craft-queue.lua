@@ -4,9 +4,11 @@ local inventory = { [2000] = 0, [3000] = 0, [4000] = 0, [5000] = 0 }
 local crafts = {}
 local account = {}
 local shoppingList, shoppingHave = {}, {}
+local shoppingAdds = {}
 local ahCheaper = {}
 local selected, quantity
 local craftHook
+local protectedOpenCalls = 0
 
 function wipe(t) for key in pairs(t) do t[key] = nil end return t end
 function UnitName() return "Tester" end
@@ -23,6 +25,7 @@ function CreateFrame()
 end
 
 C_Timer = { After = function(_, fn) fn() end }
+ProfessionsFrame = { shown = true, IsShown = function(self) return self.shown end }
 C_Item = {}
 C_Spell = {
     GetSpellName = function(id) return "Recipe " .. id end,
@@ -30,7 +33,8 @@ C_Spell = {
 }
 C_TradeSkillUI = {
     GetRecipeInfo = function(id)
-        return { recipeID = id, name = id == 100 and "Main Craft" or "Prerequisite", icon = id, learned = true }
+        local name = id == 100 and "Main Craft" or id == 101 and "Second Main Craft" or "Prerequisite"
+        return { recipeID = id, name = name, icon = id, learned = true }
     end,
     GetRecipeCooldown = function() return nil end,
     GetRecipeRequirements = function() return {} end,
@@ -38,14 +42,17 @@ C_TradeSkillUI = {
         crafts[#crafts + 1] = { id = id, count = count }
         if craftHook then craftHook(id, count) end
     end,
+    OpenRecipe = function() protectedOpenCalls = protectedOpenCalls + 1 end,
 }
 
 local makes = {
     [1000] = { recipe = 100, made = 1, need = { [2000] = 1, [3000] = 2, [4000] = 1 } },
+    [1001] = { recipe = 101, made = 1, need = { [2000] = 1 } },
     [2000] = { recipe = 200, made = 1, need = { [5000] = 2 } },
 }
 local reagents = {
     [100] = { { itemID = 2000, need = 1 }, { itemID = 3000, need = 2 }, { itemID = 4000, need = 1 } },
+    [101] = { { itemID = 2000, need = 1 } },
     [200] = { { itemID = 5000, need = 2 } },
 }
 
@@ -59,8 +66,11 @@ local ns = {
         List = { Render = function() end },
         Detail = { Render = function() end },
         Recipes = {
+            Profession = function() return { id = 1 } end,
             Reagents = function(id) return reagents[id] or {} end,
-            OutputItem = function(id) return id == 100 and 1000 or 2000, 1 end,
+            OutputItem = function(id)
+                return id == 100 and 1000 or id == 101 and 1001 or 2000, 1
+            end,
             ItemCount = function(id) return inventory[id] or 0 end,
             ItemName = function(id) return "Item " .. id end,
             Owned = function() return {} end,
@@ -82,7 +92,9 @@ local ns = {
             Materials = function() return {}, {} end,
             Trim = function() end,
             Redraw = function() end,
-            Add = function() end,
+            Add = function(info, count)
+                shoppingAdds[info.recipeID] = count
+            end,
             ShouldBuyAH = function(id) return ahCheaper[id] or id ~= 4000 end,
         },
         Vendors = {
@@ -120,6 +132,12 @@ queue.Click()
 selected = ns.Professions.State.selectedID
 assert(selected == 200 and quantity == "2", "prerequisites must be prepared first")
 assert(#crafts == 0, "Start Queue must only prepare, not craft")
+queue.Step(200, true, -1)
+assert(queue.Active().requested == 1 and quantity == "1",
+    "editing a prepared craft did not synchronize its active quantity")
+queue.Step(200, true, 1)
+assert(queue.Active().requested == 2 and quantity == "2",
+    "increasing a prepared craft did not synchronize its active quantity")
 
 local event = assert(frames[1].onEvent)
 queue.Click()
@@ -151,5 +169,50 @@ assert(next(queue.List().prerequisites) == nil and next(queue.List().crafts) == 
     "Clear did not empty the crafting queue")
 assert(shoppingList[102] == nil, "Clear did not remove queue-generated shopping entries")
 assert(shoppingList[101] ~= nil, "Clear removed an unrelated Shopping List entry")
+
+queue.Add(C_TradeSkillUI.GetRecipeInfo(100), 1)
+ProfessionsFrame.shown = false
+local craftedBefore = #crafts
+queue.Click()
+assert(protectedOpenCalls == 0, "Start Queue attempted a protected profession-opening call")
+assert(#crafts == craftedBefore and queue.Running() and not queue.Active().started,
+    "a closed profession incorrectly started or stuck the craft")
+ProfessionsFrame.shown = true
+queue.Click()
+assert(#crafts == craftedBefore + 1 and queue.Active().started,
+    "Craft Next did not craft after the player opened the profession")
+ProfessionsFrame.shown = false
+event(frames[1], "TRADE_SKILL_CLOSE")
+assert(queue.Running() and not queue.Active().started,
+    "closing the profession did not return the active batch to a ready state")
+craftedBefore = #crafts
+queue.Click()
+assert(protectedOpenCalls == 0 and #crafts == craftedBefore and not queue.Active().started,
+    "Craft Next attempted a protected call or stale craft while the profession was closed")
+queue.Clear()
+
+inventory[2000], inventory[5000] = 1, 4
+queue.Add(C_TradeSkillUI.GetRecipeInfo(100), 1)
+queue.Add(C_TradeSkillUI.GetRecipeInfo(101), 1)
+assert(queue.List().prerequisites[200] and queue.List().prerequisites[200].count == 1,
+    "the same bag reagent was counted twice across dependent queued crafts")
+queue.Clear()
+
+inventory[2000], inventory[5000] = 0, 4
+wipe(shoppingAdds)
+queue.AddWithShopping(C_TradeSkillUI.GetRecipeInfo(200), 1)
+queue.AddWithShopping(C_TradeSkillUI.GetRecipeInfo(100), 1)
+local merged = queue.List()
+assert(merged.prerequisites[200] and merged.prerequisites[200].count == 2,
+    "standalone and prerequisite demand for the same recipe was not combined")
+assert(merged.prerequisites[200].standalone == 1 and merged.crafts[200] == nil,
+    "combined recipe did not preserve its standalone demand")
+assert(shoppingAdds[200] == 1,
+    "combined prerequisite lost the shopping materials for its standalone craft")
+wipe(shoppingAdds)
+assert(queue.AddMissingToShopping(), "missing-material refresh did not run")
+assert(shoppingAdds[100] == 1 and shoppingAdds[200] == 1,
+    "missing-material refresh did not rebuild queue-backed shopping entries")
+queue.Clear()
 
 print("Crafting queue regression test: PASS")

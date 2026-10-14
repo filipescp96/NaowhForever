@@ -414,6 +414,7 @@ end
 local function Clear()
     wipe(List())
     wipe(Manual())
+    if P.CraftQueue and P.CraftQueue.Clear then return P.CraftQueue.Clear() end
     Trim()
     if P.CraftQueue and P.CraftQueue.ResetSkipped then P.CraftQueue.ResetSkipped() end
     Redraw()

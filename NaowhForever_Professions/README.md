@@ -202,8 +202,16 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
 - The crafting queue is saved per character. Purchased shopping-list crafts move into it only when
   their own auction-house materials are ready; vendor materials stay visible as missing unless the
   auction house is cheaper. Prerequisites are prepared before regular crafts. Start Queue only selects
-  the first batch, and every Craft Next batch requires a fresh player click through the same craft path
-  as Create. Delayed continuation callbacks carry a run ID so an old queue run cannot change a newer one.
+  the first batch and waits safely when the profession window is closed; the player opens it manually.
+  Every Craft Next batch
+  requires a fresh player click through the same craft path as Create. Queue rows and Clear stay editable
+  between batches, but lock while a batch is actually casting. Closing the profession resets an unconfirmed
+  batch instead of leaving it stuck. When one recipe is both a prerequisite and a standalone craft, its
+  quantities are combined into one prerequisite-first batch while its standalone shopping demand is kept.
+  Add Missing to SL explicitly refreshes the queue-backed Shopping List materials; each shortage keeps the
+  existing cheaper-source routing between the auction house and vendors.
+  Shopping List Clear also clears the queue that supplies its vendor shortages. Delayed continuation
+  callbacks carry a run ID so an old queue run cannot change a newer one.
 - Herbalism and Skinning have no recipes: their ranks are Mining's (same skill and cost) and their
   trainers come from the town map data. A rank needs level 10, 20 and 35 for caps 150, 225 and 300
   unless its data says otherwise.
