@@ -4,7 +4,7 @@ The QoL features, shipped as their own addon (`NaowhForever_QoL`): one file per 
 with its rules, its drawing and its settings card at the end. They share one settings store,
 `ns.QoLSettings`, which stays in the core (`Core/Settings.lua`) because the core and other modules
 read it too; its on/off switches come from `ns.FEATURES.qol` (`Core/Features.lua`). Turn the addon
-off (Settings > Modules) and every QoL feature is gone, with the Top Bar, which needs it.
+off (Settings > Modules) and every QoL feature is gone, the Top Bar with them.
 
 ## Layout
 
@@ -32,6 +32,7 @@ NaowhForever_QoL/
     UI/MapPins.xml                 the Gathered pin's template, and the file that fills it
     UI/MapPins.lua                 the herbs and veins you gathered on the world map, noted as you loot them
     UI/SettingsPage.lua            its tab, QoL > Glimmer, declared as cards, with its previews
+  TopBar/                          the Top Bar, its card on QoL > Interface; its own README has its files
   Interface/
     SpellEfficiencyData.lua  each mana spell rank's healing or damage (ns.SpellEfficiencyData) and their talents (ns.SpellEfficiencyTalents), generated
     SpellEfficiency.lua Mana Efficiency on spell tooltips, its Preview Tooltip and the Tooltips card's preview; ns.SpellEfficiencyOf, the numbers both it and the report show
@@ -127,6 +128,7 @@ NaowhForever_QoL/
     MouseRing/          the Mouse Ring's rings, glows and trail
     Glimmer/            Glimmer's glow, flare, ring, beam and bracket, drawn by
                         Tools/media/make_media.py
+    TopBar/             the Top Bar's button icons and resting glyph
   README.md           this file
 ```
 
@@ -177,9 +179,16 @@ NaowhForever_QoL/
   the Alerts group in `Core/AlertStack.lua`, Naowh's setups in `Core/Profiles/Setups.lua`) or in
   `Shared/` (the copy cards, the town NPCs, the food and potion lists).
   `Tools/regression/test-module-boundaries.lua` checks it.
-- The Top Bar's card sits on QoL > Interface, so the Top Bar depends on QoL: switching QoL off takes
-  it along. It has no item in the onboarding and its own switch is on its card. Settings > Modules
-  lists it only while its addon is not loaded, so a player who switched it off can turn it back on.
+- The Top Bar lives in `TopBar/`, loaded last, after the QoL features it sits beside. Its on/off is
+  its card's switch on QoL > Interface, and it keeps its own store, `ns.TopBarSettings` (the
+  profile's `topBar` table): it was a module addon of its own (NaowhForever_TopBar) before it moved
+  into QoL, and the same table means every setting carried over. An old NaowhForever_TopBar folder
+  is switched off at login (`RETIRED_ADDONS` in `Core/Core.lua`), with a reload offered when it
+  loaded. In that one session the old addon, which loads after QoL, has the bar: `TB.On` is false
+  while it is loaded, and the QoL copy declares no card while it is enabled, since the old copy
+  stops on a second `topBar` card. The enable state is asked for all characters, as the player
+  may not be known yet while QoL loads; a folder enabled only on other characters costs the card
+  for one session.
 - The Trainer Popup card is declared here, on QoL > XP with Talent Points, so it goes when QoL is
   off. The Bag Space and Food & Drink key binding names live in `Core/Commands.lua`, so the key
   bindings read right with QoL off, where the Bag Space key says so.
@@ -705,8 +714,9 @@ NaowhForever_QoL/
 - A generation number drops a step left over from an earlier sale, so closing the vendor or entering combat ends a sale cleanly.
 - The X on a rule match keeps it (`scrapKeep`), so the rule leaves it alone until you mark it yourself.
 - Bag buttons, the game's, EllesmereUI's and Baganator's, are hooked once with HookScript, and only out of combat.
+- Marking Modifier is Alt or Ctrl. The game's own modified click still runs after the hook, so with Ctrl a click on gear also opens the dressing room (DRESSUP is Ctrl by default); the setting's help says so instead of blocking the game's handler.
 - Baganator gets the mark as a corner widget and the marks as a junk plugin, through `Baganator.API`. Neither can be taken back, so both are registered once, the first time the Scrap Marker is on, and answer nothing while it is off.
-- Baganator pools its item buttons and moves them between slots, so an Alt-click reads the button's bag and slot when it lands, not at the last paint. Its buttons for other characters' bags have no bag, so they get no click and no mark.
+- Baganator pools its item buttons and moves them between slots, so a marking click reads the button's bag and slot when it lands, not at the last paint. Its buttons for other characters' bags have no bag, so they get no click and no mark.
 - Baganator's junk plugin takes over its junk detection, so ours counts grey items with a sell price as junk too, as Baganator's own Poor quality does, and adds scrap on top.
 - `MAX_ITEM_ID` caps an imported ID at the largest 32-bit signed number, so a pasted list cannot ask for an impossible item.
 
@@ -922,6 +932,10 @@ NaowhForever_QoL/
   quest objective they count for. Quest Item Sparkle keeps the game's loot sparkle on quest items
   through graphics presets. Minimap Icons shows every spot herbs and ore grow near you, ringed in their
   skill-up color, and Gathered on the Map every herb and vein you gather.
+- Quest Givers were part of Quest Objects until they got their own category, and turning Quest Objects
+  off was the only way to keep the nameplate off quest NPCs. A profile with no `giver` setting yet
+  takes `quest`, `questStyle` and `questColor` for it on `ns.Apply`, which also runs on a profile
+  switch; once `giver` is set it never runs again for that profile.
 - Its spots (25,177 on 44 maps) used to be the load-on-demand NaowhForever_GlimmerData; they are now one string in
   QoL, CBOR deflated in Base64 (about 130 KB), which Spots.Load unpacks with the client's own C_EncodingUtil
   the first time Minimap Icons or Gathered on the Map needs them (about 1.2 MB as a table, measured in Lua 5.1),

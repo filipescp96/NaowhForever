@@ -7,7 +7,8 @@ minimap and Top Bar button). Its on/off switches and their defaults come from
 
 - **Buffs & Consumables:** a row of icons for missing food, flask and elixir buffs from the
   consumables you watch, class buffs missing in your group, and your own class buff (armor, Inner
-  Fire, Battle Shout, poisons, a weapon imbue) when it is missing. Hover one to use a carried item.
+  Fire, Battle Shout, poisons, a weapon imbue) when it is missing. Click one to use the item it
+  shows, or hover it to pick another carried item.
   Worn Gear Reminder (off by default) adds an icon while you wear gear with a drawback where it
   matters (`D.WORN`): Cloak of Hermitic Bliss in Wailing Caverns. Its tooltip is the item's own.
 - **Campfire:** in two looks on one mover. Round, a camp icon with a time ring and a countdown;
@@ -15,8 +16,9 @@ minimap and Top Bar button). Its on/off switches and their defaults come from
   their amounts, and the time left on the right over a line that runs down green, yellow, then
   red. Hovering it lists each bonus, the time left and when to refresh.
   With no Camp Benefits it glows (LibCustomGlow) and its fire is grey. With a campfire in range the
-  fire lights up, the words say Click to sit, and a click on the fire performs the /sit emote; it
-  glows brighter under the mouse. Camp Nearby's fire does the same.
+  fire lights up, the words say Click to sit, and a click on the fire or its words performs the
+  /sit emote (Round: the icon and the label under it; Simple: the whole bar); it glows brighter
+  under the mouse. Camp Nearby's fire does the same.
 - **Camp Nearby:** the same bar drawn bare (no backdrop, edge or line), larger by its own scale,
   sized to what it says and stacked in the Alerts group (`ns.AlertStack`), with the camp's time
   left inline after a dot while it still runs.
@@ -103,6 +105,9 @@ NaowhForever_AuraBuffs/
 - Group auras change in bursts, so a buff refresh waits `QUEUE_DELAY` and covers the lot. Nothing
   fires as a buff runs down, so the earliest one to cross the warning time is timed.
 - `ELIXIR_ICON` (13454, Greater Arcane Elixir) stands for "no elixir at all" in the preview.
+- The preview's raid buff (Unlock Mode and the card) is the first picked one the reminders would track for you
+  (`A.Buffs.RaidSample`): one you know, or with Only Buffs I Can Cast off any non-talent one. With Raid Buff
+  Reminders off, or none that applies, it shows none, so a warrior no longer sees Arcane Intellect.
 - Two classic elixirs for the same stat do not stack, so one of each group counts; Forever's
   stacking is unconfirmed. Forever keeps the classic IDs for flasks, elixirs, scrolls and class
   buffs; cooked food moved to Forever-only "Nutritious Food" spells with one shared Well Fed aura
@@ -142,8 +147,13 @@ NaowhForever_AuraBuffs/
   food eaten (`lastFoodIcon` in the account settings, taken on `UNIT_SPELLCAST_SUCCEEDED` from the bag item
   with that use spell, else the spell's own texture), else Well Fed's. Weapon Enhancement Reminder (off by default) asks for a stone or
   oil (`D.WEAPON_ITEMS`) on each equipped weapon, an off hand only when it is a weapon, and defers to a class's
-  own poison or imbue reminder. Its icon is the carried item's, else a Dense Sharpening Stone (`D.WEAPON_ICON_ITEM`):
-  Naowh asked for classic-looking defaults, and the first oil in the list has a modern icon.
+  own poison or imbue reminder. Its icon is the carried item's, else a Rough Sharpening Stone (`D.WEAPON_ICON_ITEM`),
+  and each stone, weightstone and oil shows its classic icon (`D.WEAPON_ICONS`, a texture path per item ID, here and in
+  the hover menu) rather than the client's item icon: Naowh asked for classic-looking icons, and the first oil in the
+  list has a modern one. The IDs and icon names are Wowhead Forever's (2026-10-14), which match Classic's.
+  A weapon item saved as Last Used before that (the client's item icon) is turned into its classic icon the
+  first time it is shown, or forgotten when no stone or oil has it. `ItemIcon` returns the classic icon for these
+  items, and Last Used finds the carried item by it, so the row, the item a click uses and the menu agree.
 - With Only If I Carry One on (the default), Robin asked for reminders only while you have the item, but a profile
   with nothing listed should still remind you about the flask or buff food in your bags. So a kind shows when a
   listed item is carried, else when an item of the same `D.DEFAULT_GROUPS` list is (buff food is any bag item whose
@@ -183,6 +193,17 @@ NaowhForever_AuraBuffs/
   clamp keeps it in at the sides. The icon size and every gap, in the row and the menu, are rounded
   to whole pixels (`Cell.Snap`): at a UI scale where a unit is not a whole pixel, a menu icon a
   fraction of a pixel off the row was resampled and looked rougher than the icon above it.
+- The row's icons are secure item buttons (`type1 = "item"`), each using the carried item it shows
+  (under Last Used, the carried one with that icon; when no carried item has it, the row shows and
+  uses the first carried item instead); a class or raid buff icon uses nothing. Secure buttons make the row
+  protected, so in combat nothing touches it: a refresh waits, and a setting change or Unlock Mode
+  is applied once combat ends (`PLAYER_REGEN_ENABLED`), registered only while the row is on or
+  showing.
+- A press glows the icon (`Glow.Press`): a short Pixel Glow in the Glow color, lines and thickness,
+  under its own LibCustomGlow key so a reminder's own glow keeps running. It is not the game's button
+  highlight or pushed look (`Parts.Press`). The menu waits for the glow before it closes.
+- The row's and the menu's icon edges take the theme's Borders & Lines color (`ns.ThemeTint`), and
+  stay black with the default theme.
 - Camp Benefits (1229741, probed 2026-09-19), Campfire Nearby (1283391, the area aura in range of
   a campfire, 2026-09-24) and Welcoming Campfire (1229739 and the crafting 1289723, the 60 second
   aura while sitting, before Camp Benefits lands, 2026-09-25) were probed on the client.

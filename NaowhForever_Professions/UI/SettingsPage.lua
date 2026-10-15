@@ -49,6 +49,10 @@ local function ROIOn()
     return ProfitOn() and S.Get("craftROI") == true
 end
 
+local function FavoriteSearchOn()
+    return On() and S.Get("searchFavoritesAH") == true
+end
+
 local function ProfessionLine(index)
     if not index then return nil end
     local name, _, rank, maxRank = GetProfessionInfo(index)
@@ -184,6 +188,11 @@ page:Card({
           why = "Needs Crafting Profit",
           help = "Also shows each recipe's profit at the right of its row in the list, green or red. Recipes "
               .. "whose profit is not known show none." },
+        { key = "recipeAvailability", label = "Recipe Availability Marks", toggle = true, needs = On,
+          why = TEXT_OFF,
+          help = "Shows small markers on recipe rows when the result is in your bags or bank, or the recipe "
+              .. "is already on the Shopping List. Hover a marker for its exact count. Equipped items do not "
+              .. "count as bag contents." },
         Group("Return on Investment"),
         { key = "craftROI", label = "Show ROI", toggle = true, needs = ProfitOn,
           why = "Needs Crafting Profit",
@@ -215,6 +224,9 @@ page:Card({
           help = "At the auction house, a window beside it lists the patterns, plans and manuals of your "
               .. "favourite recipes that you have not learned or bought, with what they cost now. Buy finds "
               .. "the cheapest and asks before Accept buys it." },
+        { key = "manualPatternScan", label = "Manual Favorite Scans", toggle = true, needs = FavoriteSearchOn,
+          why = "Needs Search Favorites AH",
+          help = "Adds Scan, Pause and Resume controls instead of searching every favourite automatically." },
         { key = "shoppingList", label = "Shopping List", toggle = true, needs = On, why = TEXT_OFF,
           help = "Adds \"- [1] + Add to List\" under a recipe's reagents: the materials Buy on AH would buy for "
               .. "that many crafts go on a shopping list, from anywhere. At the auction house the list shows "
@@ -259,11 +271,12 @@ page:Card({
 page:Card({
     id = "craftTimer", name = "Total Craft Timer", order = ORDER_CRAFT_TIMER, switch = "craftTimer",
     help = "Crafting several at once (Create All, or Create with a count) shows one bar for the whole batch, "
-        .. "drawn like the Flight Timer: the recipe, how many are done and the time left on all of them, in place "
-        .. "of the cast bar that fills for every craft. It sits where the Flight Timer is, as nobody crafts in "
-        .. "flight: move it in the HUD Editor as the Flight Timer.",
+        .. "drawn like the Flight Timer: the recipe, how many are done and the time left on all of them. It sits "
+        .. "where the Flight Timer is, as nobody crafts in flight: move it in the HUD Editor as the Flight Timer.",
     studio = { height = CRAFT_STAGE_H, states = CRAFT_STATES, new = NewCraftPreview, paint = PaintCraftPreview },
     rows = {
+        { key = "craftTimerShowCastBar", label = "Show Normal Cast Bar", toggle = true, needs = On,
+          why = TEXT_OFF, help = "Keeps the normal cast bar visible alongside the total crafting timer." },
         Settings.Look("craftTimer", { text = true, size = TEXT_RANGE, bar = "Naowh Gradient", background = "alpha" }),
     },
 })

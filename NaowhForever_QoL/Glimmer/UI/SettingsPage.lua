@@ -40,12 +40,14 @@ local OWN_STYLES = { OWN_NAMES, { "same", "glow", "sparkles", "ring", "beam", "b
 local ARCS = { { [0] = "Straight Ahead", [1] = "In Front", [2] = "All Around" }, { 0, 1, 2 } }
 
 local CATEGORY_NAMES = {
-    ore = "Ore", herb = "Herbs", quest = "Quest Objects", chest = "Chests", bobber = "Fishing Bobber",
+    ore = "Ore", herb = "Herbs", quest = "Quest Objects", giver = "Quest Givers", chest = "Chests",
+    bobber = "Fishing Bobber",
 }
 local CATEGORY_HELP = {
     ore = "Mining veins and deposits.",
     herb = "Plants you can gather.",
-    quest = "Objects your quests need, and quest givers with a quest to pick up or hand in.",
+    quest = "Objects your quests need.",
+    giver = "NPCs with a quest to pick up or hand in. Glimmer shows their nameplate to light them up.",
     chest = "Chests, strongboxes and footlockers out in the world.",
     bobber = "Your fishing bobber.",
 }
@@ -148,7 +150,7 @@ page:Window({
 })
 
 page:Card({
-    id = "look", name = "Glimmer", order = ORDER_LOOK, switch = "enabled",
+    id = "look", name = "Glimmer", order = ORDER_LOOK, switch = "enabled", open = true,
     help = "Herbs, ore, chests and quest objects light up as you walk up to them.",
     studio = { height = STAGE_H, states = LOOK_STATES, new = NewPreview, paint = PaintPreview },
     rows = {
