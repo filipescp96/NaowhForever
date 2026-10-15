@@ -8,6 +8,7 @@ local Parts, St = Shared.Parts, Shared.Style
 local P = ns.Professions
 local S = P.Settings
 local Shopping = P.Shopping
+local Queue = P.CraftQueue
 local Text = P.Text
 local Style = P.Style
 local Widgets = P.Widgets
@@ -40,14 +41,16 @@ local EVENTS = { "BAG_UPDATE_DELAYED" }
 local TEXT_TITLE = ns.L("Shopping List")
 local TEXT_SUBTITLE = ns.L("Crafts, other items and what to buy.")
 local TEXT_HINT = ns.L("Add an item above, or click Add to List under a recipe: what you need to buy lands here.")
-local TEXT_CRAFTS, TEXT_ITEMS, TEXT_MATERIALS, TEXT_MADE = ns.L("Crafts"), ns.L("Other Items"),
-    ns.L("Materials"), ns.L("Make First")
+local TEXT_QUEUE_HINT = ns.L("Add an item above, or add a recipe to the Crafting Queue: what you need to buy lands here.")
+local TEXT_CRAFTS, TEXT_ITEMS, TEXT_MATERIALS, TEXT_VENDOR, TEXT_MADE = ns.L("Crafts"), ns.L("Other Items"),
+    ns.L("Materials"), ns.L("Buy from Vendor"), ns.L("Make First")
 local TEXT_CLEAR = ns.L("Clear")
 local TEXT_ROW = "%dx %s"
 local TEXT_UNKNOWN = "?"
 local TEXT_ITEM = ns.L("item ")
 local TEXT_OWNED = ns.L("(%d owned)")
 local TEXT_NO_PRICE = ns.L("no price")
+local TEXT_VENDOR_PRICE_UNKNOWN = ns.L("price unknown")
 local TEXT_ABOUT = "~"
 local TEXT_PARTS_BOUGHT = ns.L("parts bought")
 local TEXT_SAVES = ns.L("saves ~")
@@ -57,7 +60,7 @@ local TEXT_MAKE, TEXT_BUY = ns.L("Make"), ns.L("Buy")
 local TEXT_ADD = ns.L("Add")
 local TEXT_NOT_FOUND = ns.L("No item found for that. Use a link, an item ID, or the name of an item you have seen.")
 local TEXT_OFF = ns.L("Turn on the Shopping List in the Professions settings first.")
-local TIP_CLEAR_HELP = ns.L("Empties the shopping list.")
+local TIP_CLEAR_HELP = ns.L("Empties the Shopping List and the Crafting Queue when it is enabled.")
 local TIP_REMOVE, TIP_REMOVE_HELP = ns.L("Remove"), ns.L("Takes this craft and its materials off the list.")
 local TIP_MORE, TIP_MORE_HELP = ns.L("One More"), ns.L("Adds the materials for one more craft.")
 local TIP_FEWER, TIP_FEWER_HELP = ns.L("One Fewer"), ns.L("Takes the materials for one craft off the list.")
@@ -74,11 +77,16 @@ local TIP_CONSUMABLES_HELP = ns.L("Picks food, flasks, elixirs and more for your
 
 local window, side, scroll, input, qty, empty, total, clear, events
 local crafts, craftPool, items, itemPool, madeList, madePool = {}, {}, {}, {}, {}, {}
-local pools = { crafts = {}, items = {}, materials = {}, made = {} }
+local pools = { crafts = {}, items = {}, materials = {}, vendor = {}, made = {} }
 local heads = {}
+local EMPTY = {}
 
 local function On()
     return S.Get("enabled") and S.Get("shoppingList")
+end
+
+local function QueueOn()
+    return On() and S.Get("craftQueue")
 end
 
 local function ByCraftName(a, b)
@@ -267,6 +275,24 @@ local function DrawMaterials(materials, plan, y)
     return y
 end
 
+local function DrawVendorMaterials(materials, y)
+    if #materials > 0 then y = PlaceHead(heads.vendor, y - SECTION_GAP) end
+    local pool = pools.vendor
+    for i, material in ipairs(materials) do
+        local row = SideRow(pool, i)
+        row.note:ClearAllPoints()
+        row.note:SetPoint("RIGHT")
+        row.item, row.key, row.spell = material.item, nil, nil
+        row.icon:SetTexture(C_Item.GetItemIconByID(material.item))
+        row.name:SetText(TEXT_ROW:format(material.qty,
+            Shopping.ItemName(material.item) or (TEXT_ITEM .. material.item)))
+        row.note:SetText(material.price and Text.Short(material.price * material.qty) or TEXT_VENDOR_PRICE_UNKNOWN)
+        y = PlaceRow(row, y)
+    end
+    HideSpare(pool, #materials + 1)
+    return y
+end
+
 local function SortedMade(made)
     local n = 0
     for item, count in pairs(made) do
@@ -326,15 +352,18 @@ local function RenderWindow()
     if not (window and window:IsShown()) then return end
     if not On() then return window:Hide() end
     local materials, made, plan = Shopping.Materials()
+    local vendorMaterials = QueueOn() and Queue.VendorMaterials() or EMPTY
     SortedCrafts()
     SortedItems()
     for _, head in pairs(heads) do head:Hide() end
     local y = DrawCrafts(-TOP_GAP)
     y = DrawItems(y)
     y = DrawMaterials(materials, plan, y)
+    y = DrawVendorMaterials(vendorMaterials, y)
     y = DrawMade(made, plan, y)
     side:SetHeight(math.max(1, -y))
-    local listed = #crafts > 0 or #items > 0
+    local listed = #crafts > 0 or #items > 0 or #vendorMaterials > 0
+    empty:SetText(QueueOn() and TEXT_QUEUE_HINT or TEXT_HINT)
     empty:SetShown(not listed)
     total:SetText(#materials > 0 and Shopping.Estimate(materials, TEXT_UNPRICED) or "")
     clear:SetShown(listed)
@@ -418,6 +447,7 @@ local function BuildBody(top)
     Head("crafts", TEXT_CRAFTS)
     Head("items", TEXT_ITEMS)
     Head("materials", TEXT_MATERIALS)
+    Head("vendor", TEXT_VENDOR)
     Head("made", TEXT_MADE)
     empty = ns.Font(window, SUMMARY_SIZE, nil, T.muted)
     empty:SetPoint("CENTER", scroll, "CENTER")

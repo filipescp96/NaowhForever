@@ -142,7 +142,10 @@ end
 
 local function Listed(part)
     local api = ns.ProfWindowAPI
-    return not shopPlan.owned[part] and not (api and api.IsVendorItem(part))
+    if shopPlan.owned[part] then return false end
+    if not (api and api.IsVendorItem(part)) then return true end
+    local queue = P.Settings and P.Settings.Get("craftQueue") and P.CraftQueue
+    return queue and queue.ShouldBuyAH(part) or false
 end
 
 local function Supply(item, want, from, into, depth)
@@ -300,12 +303,16 @@ local function Estimate(materials, unpriced)
         missing > 0 and TEXT_MISSING:format(missing, unpriced) or "")
 end
 
-local function Needs(recipeID)
+local function Needs(recipeID, fromQueue)
     local api = ns.ProfWindowAPI
     local out, owned = {}, api.Owned()
     local ok, reagents = pcall(api.Reagents, recipeID)
     for _, r in ipairs(ok and reagents or EMPTY) do
-        if not owned[r.itemID] and not api.IsVendorItem(r.itemID) then out[r.itemID] = r.need end
+        local vendor = api.IsVendorItem(r.itemID)
+        local queue = fromQueue and P.CraftQueue
+        if not owned[r.itemID] and (not vendor or (queue and queue.ShouldBuyAH(r.itemID))) then
+            out[r.itemID] = r.need
+        end
     end
     return out
 end
@@ -330,35 +337,49 @@ local function OnChange(fn)
     listeners[#listeners + 1] = fn
 end
 
-local function Add(info, crafts)
-    local need = Needs(info.recipeID)
-    if next(need) == nil then return end
+local function Add(info, crafts, got, quiet, fromQueue, defer)
+    local need = Needs(info.recipeID, fromQueue)
+    if next(need) == nil then return false end
     local list = List()
     local craft = list[info.recipeID]
     if craft then
         craft.count = craft.count + crafts
+        if fromQueue then craft.queueCount = (tonumber(craft.queueCount) or 0) + crafts end
         craft.icon = craft.icon or info.icon
         for item, per in pairs(need) do craft.need[item] = per end
+        if got then
+            craft.got = craft.got or {}
+            for item, qty in pairs(got) do craft.got[item] = (craft.got[item] or 0) + qty end
+        end
+        craft.fromQueue = craft.queueCount ~= nil and craft.queueCount == craft.count
     else
-        list[info.recipeID] = { name = info.name, icon = info.icon, count = crafts, need = need }
+        list[info.recipeID] = { name = info.name, icon = info.icon, count = crafts, need = need, got = got,
+            fromQueue = fromQueue and true or false, queueCount = fromQueue and crafts or nil }
     end
     local parts = {}
     for item, per in pairs(need) do
         parts[#parts + 1] = TEXT_PART:format(per * crafts, ItemName(item) or (TEXT_ITEM .. item))
     end
-    ns.Print(TEXT_ADDED:format(info.name, crafts, crafts == 1 and TEXT_CRAFT or TEXT_CRAFTS, table.concat(parts, ", ")))
-    Redraw()
+    if not quiet then
+        ns.Print(TEXT_ADDED:format(info.name, crafts, crafts == 1 and TEXT_CRAFT or TEXT_CRAFTS,
+            table.concat(parts, ", ")))
+    end
+    if not defer then Redraw() end
+    return true
 end
 
 local function Step(recipeID, by)
     local craft = recipeID and List()[recipeID]
     if not craft then return end
+    if craft.queueCount and P.CraftQueue then return P.CraftQueue.Step(recipeID, false, by) end
     craft.count = math.max(1, math.min(C.MAX_CRAFTS, craft.count + by))
     Trim()
     Redraw()
 end
 
 local function Remove(recipeID)
+    local craft = recipeID and List()[recipeID]
+    if craft and craft.queueCount and P.CraftQueue then return P.CraftQueue.Remove(recipeID, false) end
     List()[recipeID] = nil
     Trim()
     Redraw()
@@ -391,6 +412,8 @@ local function RemoveItem(item)
 end
 
 local function Clear()
+    local queue = P.Settings and P.Settings.Get("craftQueue") and P.CraftQueue
+    if queue then queue.Clear() end
     wipe(List())
     wipe(Manual())
     Trim()
