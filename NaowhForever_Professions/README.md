@@ -117,6 +117,10 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
 - The list is wide enough for a recipe name, its count and a full profit ("-12g 07s 09c"). Counts sit
   in a right-aligned column as wide as the widest on screen, so every icon and name starts in line,
   never left of `ICON_X` (24), which keeps recipes indented under their headers.
+- Recipe Availability Marks are opt-in. Their Shopping List and bag icons are built only when the
+  switch is on; bag totals are read from bag slots so equipped gear is never counted as bag stock.
+  The list redraws on a Shopping List change only while the window is open: `/nf shopping` can
+  change the list before the recipe window was ever built.
 - The rank banner pushes both columns down 46 while it shows. Filter is 76 wide for "Filter (3)".
   The Buy, Add to List and Create rows share one width, so they line up; the reagent rows end 4
   short of Create, hence the Buy row's 4 overhang.
@@ -217,10 +221,12 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   values, since which one Forever returns was not pinned down.
 - The Total Craft Timer takes the Flight Timer's measures and spot, as nobody crafts in flight. The
   player cast bars (EllesmereUI's and Blizzard's) stay at zero alpha for the batch, since their own
-  code shows them on every cast. Forever may report a cast time of 0 until it is cast, so 3s stands
-  in. Pressing Create mid-craft fails that press while the batch casts on, so that failure is
-  ignored. A batch with no craft event 5s past its expected end has stopped. Its hooks are installed
-  the first time it is switched on and stay, idle while it is off.
+  code shows them on every cast. Show Normal Cast Bar in the Total Craft Timer card keeps them
+  alongside the timer instead, restoring their original alpha immediately if enabled during a batch.
+  It defaults off and adds no events, frames or hooks. Forever may report a cast time of 0 until it
+  is cast, so 3s stands in. Pressing Create mid-craft fails that press while the batch casts on, so
+  that failure is ignored. A batch with no craft event 5s past its expected end has stopped. Its
+  hooks are installed the first time it is switched on and stay, idle while it is off.
 - Bag room is played out craft by craft on what the bags hold: the item onto a stack with room, else
   a free slot that can take it; the reagents out, smallest stack first (seen in game 2026-09-30), each
   emptied stack freeing its slot. A profession bag takes only its kind, the reagent bag only reagents.

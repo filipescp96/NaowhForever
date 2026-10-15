@@ -183,6 +183,11 @@ page:Card({
           why = "Needs Crafting Profit",
           help = "Also shows each recipe's profit at the right of its row in the list, green or red. Recipes "
               .. "whose profit is not known show none." },
+        { key = "recipeAvailability", label = "Recipe Availability Marks", toggle = true, needs = On,
+          why = TEXT_OFF,
+          help = "Shows small markers on recipe rows when the result is in your bags or bank, or the recipe "
+              .. "is already on the Shopping List. Hover a marker for its exact count. Equipped items do not "
+              .. "count as bag contents." },
         Group("Auction House"),
         { key = "ahShiftClick", label = "Shift-Click Searches AH", toggle = true, needs = On,
           why = TEXT_OFF,
@@ -250,11 +255,12 @@ page:Card({
 page:Card({
     id = "craftTimer", name = "Total Craft Timer", order = ORDER_CRAFT_TIMER, switch = "craftTimer",
     help = "Crafting several at once (Create All, or Create with a count) shows one bar for the whole batch, "
-        .. "drawn like the Flight Timer: the recipe, how many are done and the time left on all of them, in place "
-        .. "of the cast bar that fills for every craft. It sits where the Flight Timer is, as nobody crafts in "
-        .. "flight: move it in the HUD Editor as the Flight Timer.",
+        .. "drawn like the Flight Timer: the recipe, how many are done and the time left on all of them. It sits "
+        .. "where the Flight Timer is, as nobody crafts in flight: move it in the HUD Editor as the Flight Timer.",
     studio = { height = CRAFT_STAGE_H, states = CRAFT_STATES, new = NewCraftPreview, paint = PaintCraftPreview },
     rows = {
+        { key = "craftTimerShowCastBar", label = "Show Normal Cast Bar", toggle = true, needs = On,
+          why = TEXT_OFF, help = "Keeps the normal cast bar visible alongside the total crafting timer." },
         Settings.Look("craftTimer", { text = true, size = TEXT_RANGE, bar = "Naowh Gradient", background = "alpha" }),
     },
 })

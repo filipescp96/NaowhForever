@@ -5,6 +5,7 @@ local A = ns.AuraBuffs
 local S = A.Settings
 local D = ns.BuffReminderData
 local R, Cell, Menu, Glow = A.Buffs, A.BuffCell, A.BuffMenu, A.Glow
+local ItemBar = ns.Shared.ItemBar
 local Left, Secret, GROUP_UNIT = R.Left, R.Secret, R.GROUP_UNIT
 
 local QUEUE_DELAY = 0.3
@@ -26,10 +27,10 @@ local KEYS = {
 }
 local PREVIEW = {
     { spell = D.WELL_FED[1] }, { item = D.FLASKS.items[1] }, { item = ELIXIR_ICON },
-    { item = D.SCROLLS[4].items[4], count = 2 }, { spell = D.RAID[1].spells[1], count = 3 },
+    { item = D.SCROLLS[4].items[4], count = 2 }, { raid = true, count = 3 },
 }
 
-local frame, unlocked, pending
+local frame, unlocked, pending, held
 local wakeTimer, wakeDue
 local cells = {}
 local events = CreateFrame("Frame")
@@ -52,11 +53,17 @@ local function OnCellLeave(cell)
     GameTooltip:Hide()
 end
 
+local function OnCellUsed(cell)
+    if cell.itemID then Glow.Press(cell, "buffGlow") end
+end
+
 local function GetCell(i)
     local cell = cells[i]
     if cell then return cell end
-    cell = Cell.New(frame)
+    cell = Cell.New(frame, "SecureActionButtonTemplate")
     cell:EnableMouse(true)
+    cell:RegisterForClicks("AnyUp", "AnyDown")
+    cell:SetScript("PostClick", OnCellUsed)
     cell:SetScript("OnEnter", OnCellEnter)
     cell:SetScript("OnLeave", OnCellLeave)
     cell:SetScript("OnHide", OnCellHide)
@@ -83,6 +90,7 @@ local function Show(list)
         local cell = GetCell(i)
         Cell.Place(cell, frame, i, size, entry.icon, entry.count)
         cell.items, cell.slot = entry.items, entry.slot
+        ItemBar.SetItem(cell, entry.item)
         ShowTimer(cell, entry.aura)
         cell:Show()
         Glow.Set(cell, S.Get("buffGlow") and not unlocked, "buffGlow")
@@ -99,13 +107,17 @@ end
 
 local function PreviewList()
     local list = {}
-    for i, p in ipairs(PREVIEW) do
-        list[i] = { icon = p.item and C_Item.GetItemIconByID(p.item) or C_Spell.GetSpellTexture(p.spell), count = p.count }
+    for _, p in ipairs(PREVIEW) do
+        local spell = p.raid and R.RaidSample() or p.spell
+        if p.item or spell then
+            list[#list + 1] = { icon = p.item and C_Item.GetItemIconByID(p.item) or C_Spell.GetSpellTexture(spell),
+                count = p.count }
+        end
     end
     return list
 end
 
-local Refresh
+local Refresh, Apply
 
 local function StopWake()
     if wakeTimer then wakeTimer:Cancel() end
@@ -127,7 +139,7 @@ end
 
 function Refresh()
     pending = nil
-    if not frame then return end
+    if not frame or InCombatLockdown() then return end
     if unlocked then return Show(PreviewList()) end
     if not R.On() then return Show({}) end
     local list = R.Collect()
@@ -150,6 +162,7 @@ local function OnEvent(_, event, unit, _, spellID)
         Menu.Hide()
         return
     end
+    if event == "PLAYER_REGEN_ENABLED" and held then return Apply() end
     if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_ENTERING_WORLD" then R.ForgetBags() end
     if event == "ITEM_DATA_LOAD_RESULT" and not R.Requested(unit) then return end
     if event == "UNIT_SPELLCAST_SUCCEEDED" and (Secret(spellID)
@@ -207,7 +220,15 @@ local function Listen()
     events:RegisterEvent("ITEM_DATA_LOAD_RESULT")
 end
 
-local function Apply()
+function Apply()
+    if InCombatLockdown() then
+        if R.On() or unlocked or frame and frame:IsShown() then
+            held = true
+            events:RegisterEvent("PLAYER_REGEN_ENABLED")
+        end
+        return
+    end
+    held = nil
     Menu.Hide()
     events:UnregisterAllEvents()
     StopWake()
