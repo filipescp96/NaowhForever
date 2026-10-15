@@ -32,7 +32,7 @@ local EVENTS = { "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE", "TRADE_SKILL_LIST_UPDA
     "TRACKED_RECIPE_UPDATE", "GROUP_ROSTER_UPDATE", "TRADE_SKILL_FAVORITES_CHANGED" }
 local REDRAW_KEYS = { vendorMaterials = true, bagReagents = true, bankReagents = true, ahSearch = true,
     craftProfit = true, craftProfitList = true, buyMaterials = true, buyVendor = true, craftOrders = true,
-    orderTip = true }
+    orderTip = true, ownedAuctions = true }
 local PROFESSIONS_ADDON = "Blizzard_Professions"
 
 local EMPTY = {}
