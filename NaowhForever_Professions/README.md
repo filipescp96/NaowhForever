@@ -62,6 +62,7 @@ NaowhForever_Professions/
     ShoppingConsumables.lua the Consumables picker beside the Shopping List: search and favourites
     ShoppingList.lua   the shopping list beside the auction house: check and buy
     CraftQueue.lua     the standalone Crafting Queue window (ns.ToggleCraftQueue)
+    VendorQueue.lua    queue materials sold by the open merchant, with Buy and Buy All
     TrainFavorites.lua Train Favorites beside the trainer
     FavoritePatterns.lua Search Favorites AH beside the auction house
     CraftTimer.lua     Total Craft Timer
@@ -186,6 +187,9 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   List; vendor-cheaper shortages have their own section there. Start Queue only selects the next ready
   entry, and each Craft Next hardware click starts one batch because Blizzard does not allow automated
   profession opening or unattended crafting. The window stays open when the profession window closes.
+  Its vendor window reuses the module's merchant events and is built only when the open merchant sells a
+  missing queue material. Buying remains click-driven; the close button dismisses it until another merchant
+  opens. Merchant stack sizes and limited stock are respected.
 - The Consumables picker offers the Well Fed food, flasks, elixirs and stat scrolls of Naowh's consumables
   list (the one in his profile, from Wowhead Forever), the Buff Reminders' weapon stones and oils, the
   healing and mana potions in `Shared/Game/Consumables.lua` and the Smart Macros' bandages. Plain food and
@@ -273,6 +277,7 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   (Takeover.lua), `test-profession-link-view.lua` (LinkView.lua), `test-profession-shift-click.lua`
   (AuctionHouse.lua), `test-profession-merchant-events.lua` (Vendors.lua),
   `test-shopping-list-plan.lua` (ShoppingPlan.lua), `test-profession-craft-queue.lua` (CraftQueue.lua),
+  `test-profession-vendor-queue.lua` (Vendors.lua),
   `test-shopping-consumables.lua` (Consumables.lua),
   and the looks in `test-icon-look.lua` and
   `test-qol-bars-look.lua`.

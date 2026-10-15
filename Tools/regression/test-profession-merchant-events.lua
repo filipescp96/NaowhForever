@@ -1,5 +1,6 @@
 -- Run with Lua 5.1 from the repository root: the Professions module listens to merchants only
--- while a feature that reads them is on (Crafts with Vendor Buys, Crafting Profit, Buy at Vendor),
+-- while a feature that reads them is on (Crafts with Vendor Buys, Crafting Profit, Buy at Vendor,
+-- or the Crafting Queue's vendor helper),
 -- so a player with none of them on pays nothing at a merchant. Loads the real feature switches,
 -- the module's settings and Vendors.lua against stubs, then turns the switches on and off.
 local Load = dofile("Tools/regression/load_files.lua")
@@ -102,5 +103,12 @@ check("a profile that turns the module back on listens again", Listening() == #M
 settings.buyVendor = false
 for _, fn in ipairs(applyHooks) do fn() end
 check("a profile with none of them on stops listening", Listening() == 0)
+
+S.Set("craftQueue", true)
+check("Crafting Queue alone needs Shopping List and does not listen", Listening() == 0)
+S.Set("shoppingList", true)
+check("Crafting Queue with Shopping List listens to merchants", Listening() == #MERCHANT and made == 1)
+S.Set("craftQueue", false)
+check("turning Crafting Queue off stops its merchant listener", Listening() == 0)
 
 print(("test-profession-merchant-events: %d checks passed"):format(checks))

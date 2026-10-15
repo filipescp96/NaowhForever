@@ -37,6 +37,12 @@ L["Nothing in the crafting queue can be crafted with the materials in your bags.
 L["Open the required profession manually, then click Craft Next again."] = true
 L["Add an item above, or add a recipe to the Crafting Queue: what you need to buy lands here."] = true
 L["Buy from Vendor"] = true
+L["Crafting Queue materials sold here."] = true
+L["Total: %s"] = true
+L["Only %d of %d available; %s"] = true
+L["Buys %d; %s"] = true
+L["Buys this Crafting Queue shortage from the current vendor."] = true
+L["Buys every Crafting Queue shortage sold by this vendor."] = true
 L["price unknown"] = true
 L["Empties the Shopping List and the Crafting Queue when it is enabled."] = true
 L["Manual Favorite Scans"] = true

@@ -58,6 +58,7 @@ end
 local function Redraw()
     if Queue.Render then Queue.Render() end
     if P.List and P.List.UpdateQueueMarkers then P.List.UpdateQueueMarkers() end
+    if P.VendorQueue and P.VendorQueue.Render then P.VendorQueue.Render() end
 end
 
 local function ShouldBuyAH(itemID)
@@ -575,6 +576,7 @@ Apply = function(key)
             Shopping.Redraw()
         end
         if P.CraftQueueView then P.CraftQueueView.Hide() end
+        if P.VendorQueue then P.VendorQueue.Hide() end
         Redraw()
     end
     if ns.ProfWindowRefresh then ns.ProfWindowRefresh() end
