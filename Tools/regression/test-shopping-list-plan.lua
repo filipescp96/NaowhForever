@@ -230,5 +230,10 @@ SL.Clear()
 check("Clear empties the items too", next(SL.Manual()) == nil and next(SL.List()) == nil)
 SL.AddItem(ORE, 100000)
 check("an amount is capped", SL.Manual()[ORE] == env.NaowhForever.Professions.C.MAX_ITEMS)
+local queueClears = 0
+env.NaowhForever.Professions.Settings = { Get = function(key) return key == "craftQueue" end }
+env.NaowhForever.Professions.CraftQueue = { Clear = function() queueClears = queueClears + 1 end }
+SL.Clear()
+check("Clear also empties the enabled Crafting Queue", queueClears == 1)
 
 print(("test-shopping-list-plan: %d checks passed"):format(checks))
