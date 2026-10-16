@@ -36,7 +36,6 @@ local SMALL_BUTTON = 16
 local STEP_GAP, MINUS_GAP = 6, 2
 local MAKE_W, KEEP_W = 40, 34
 local SUMMARY_SIZE = 12
-local PICKER_TEXT_MIN_W, PICKER_COMPACT_W = 430, St.BAR_ICON + 4
 local EVENTS = { "BAG_UPDATE_DELAYED" }
 local TEXT_TITLE = ns.L("Shopping List")
 local TEXT_SUBTITLE = ns.L("Crafts, other items and what to buy.")
@@ -377,7 +376,15 @@ local function DropClick()
     if GetCursorInfo() then OnReceiveDrag() end
 end
 
+local function FitPicker()
+    local text = math.max(window.title:GetUnboundedStringWidth(), window.subtitle:GetUnboundedStringWidth())
+    local fits = text + St.BAR_GAP + pickerFullWidth <= picker:GetRight() - window.title:GetLeft()
+    picker.label:SetShown(fits)
+    picker:SetWidth(fits and pickerFullWidth or picker:GetHeight())
+end
+
 local function OnShow()
+    FitPicker()
     for _, event in ipairs(EVENTS) do events:RegisterEvent(event) end
     RenderWindow()
 end
@@ -388,11 +395,7 @@ end
 
 local function OnSized(_, width)
     side:SetWidth(width - INSET - SCROLLBAR - SCROLL_GAP)
-    if picker and picker.label then
-        local showText = width >= PICKER_TEXT_MIN_W
-        picker.label:SetShown(showText)
-        picker:SetWidth(showText and pickerFullWidth or PICKER_COMPACT_W)
-    end
+    if window:IsShown() then FitPicker() end
 end
 
 local function BuildInput()
