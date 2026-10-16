@@ -27,10 +27,10 @@ local PAGE_BUTTON_W, PAGE_BUTTON_H = 28, 20
 local PAGE_BUTTON_GAP, PAGE_EDGE = 4, 8
 local SCAN_BUTTON_W, PAGER_W = 92, 118
 local PRICE_SORT = { { sortOrder = Enum.AuctionHouseSortOrder.Price, reverseSort = false } }
-local EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "PLAYER_MONEY", "PLAYER_LEVEL_UP",
-    "SKILL_LINES_CHANGED", "ITEM_DATA_LOAD_RESULT",
+local EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "PLAYER_MONEY", "ITEM_DATA_LOAD_RESULT",
     "ITEM_SEARCH_RESULTS_UPDATED", "COMMODITY_SEARCH_RESULTS_UPDATED", "AUCTION_HOUSE_PURCHASE_COMPLETED",
     "AUCTION_HOUSE_SHOW_ERROR" }
+local OPEN_EVENTS = { "PLAYER_LEVEL_UP", "SKILL_LINES_CHANGED" }
 local ALONE = { none = true, bought = true, unconfirmed = true }
 local WHITE_CODE = "|cffffffff"
 local TEXT_TITLE = ns.L("Favorite Patterns")
@@ -471,7 +471,14 @@ local function ResetScan()
     wipe(display)
 end
 
+local function WatchOpen(on)
+    for _, event in ipairs(OPEN_EVENTS) do
+        if on then events:RegisterEvent(event) else events:UnregisterEvent(event) end
+    end
+end
+
 local function Closed()
+    WatchOpen(false)
     buy = nil
     ResetScan()
     wipe(waiting)
@@ -507,6 +514,7 @@ end
 
 local function OnEvent(_, event, name, loaded)
     if event == "AUCTION_HOUSE_SHOW" then
+        WatchOpen(true)
         if market then market.dismissed = nil end
     elseif event == "AUCTION_HOUSE_CLOSED" then
         return Closed()
@@ -532,6 +540,8 @@ local function Apply()
     if market and not On() then market:Hide() end
     if not On() then return end
     for _, event in ipairs(EVENTS) do pcall(events.RegisterEvent, events, event) end
+    local ah = _G.AuctionHouseFrame
+    if ah and ah:IsShown() then WatchOpen(true) end
 end
 
 local function OnSettingChanged(key)

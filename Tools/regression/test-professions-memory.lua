@@ -810,6 +810,36 @@ ns.Professions.Shopping.Step(recipes[1].spell, 0)
 check("with the window closed, a shopping change draws no recipe list", listRenders == lr)
 settings.recipeAvailability = false
 
+-- Favorite Patterns hears level and skill changes only while the auction house is open.
+local PATTERNS_SOURCE = "@" .. DIR .. "/UI/FavoritePatterns.lua"
+local function PatternTimers(event)
+    local before = timerCount
+    Fire(event)
+    local n = 0
+    for i = before + 1, timerCount do
+        if debug.getinfo(timerFn[i], "S").source == PATTERNS_SOURCE then n = n + 1 end
+    end
+    Advance(1)
+    return n
+end
+Advance(1)
+local patternRow = patternWindow.rows[1]
+local patternItem = patternRow.item
+usableItems[patternItem] = not usableItems[patternItem]
+check("a skill change at the auction house queues a Favorite Patterns draw",
+    PatternTimers("SKILL_LINES_CHANGED") == 1)
+local learnColor = usableItems[patternItem] and ready or normal
+check("and that draw shows the pattern's new learnable colour", patternRow.item == patternItem
+    and patternRow.name.textR == learnColor.r and patternRow.name.textG == learnColor.g
+    and patternRow.name.textB == learnColor.b)
+ah:Hide()
+Fire("AUCTION_HOUSE_CLOSED")
+Advance(1)
+check("with the auction house closed, a skill change queues no Favorite Patterns draw",
+    PatternTimers("SKILL_LINES_CHANGED") == 0)
+check("with the auction house closed, a level up queues no Favorite Patterns draw",
+    PatternTimers("PLAYER_LEVEL_UP") == 0)
+
 check("the recipe window's logo opens the Professions settings", logoPage == "Professions/Settings")
 check("the Shopping List has a launcher that toggles it, with a real icon path", launcher
     and launcher.open == ns.ToggleShoppingList and launcher.icon == "Interface\\Icons\\INV_Misc_Note_01")

@@ -26,7 +26,7 @@ local function Known(spell)
 end
 
 local function Learnable(item)
-    return IsUsableItem and IsUsableItem(item) == true
+    return IsUsableItem(item)
 end
 
 local function ServiceInfo(i)

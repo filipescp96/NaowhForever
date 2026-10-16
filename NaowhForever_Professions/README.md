@@ -203,7 +203,8 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   stays on Resume rather than done. Lookup timeouts keep their own counter, so a reset cannot hand a
   new search the number of a pending timeout.
 - Favorite Patterns shows a pattern's name in green when the game says the current character can use
-  that recipe item now. Level and profession skill changes refresh the open list.
+  that recipe item now. Level and profession skill changes refresh the open list; those two events
+  are registered only while the auction house is open, since skill-ups fire often elsewhere.
 - Starting a commodity purchase is protected (ADDON_ACTION_BLOCKED when tried on its own, seen
   2026-09-30), so the shopping list buys each material after the first on a click of Buy Next. A
   final price 10% over the check is warned about. A search sent while the auction house is busy is
