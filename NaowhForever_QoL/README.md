@@ -117,13 +117,15 @@ NaowhForever_QoL/
     FlightData.lua      each flight route's flown length (ns.FLIGHT_ROUTES), generated
     Flight.lua          the Flight Timer, Flight Games and flight times on the flight map
     FlightPoint.lua     zone-entry and nearby-town flight point reminders
-    TransportData.lua   estimated dock periods and dwells, generated from Journeys data
+    TransportData.lua   each boat and zeppelin stop with its period and dwell, generated from Journeys data
     TransportTimes.lua  saved per-realm server-clock sightings and estimates (ns.TransportTimes)
-    Transport.lua       Boat and Zeppelin Timers, its HUD, nearby selection and Travel settings
+    Transport.lua       Boat and Zeppelin Timers: its minimap pins, their tooltips and Travel settings
     AimTrainer.lua      the Aim Trainer (/nfaim, ns.AimRules, ns.AimPlay, ns.AimOffer)
     AimBoard.lua        the Aim Trainer's leaderboard (ns.AimBoard)
     QuizData.lua        the quiz questions (ns.QUIZ_QUESTIONS)
     Quiz.lua            the Quiz (ns.ToggleQuiz, ns.QuizOffer, ns.QuizDismiss)
+    DailyWordData.lua   the Daily Word's answers and accepted words, generated
+    DailyWord.lua       the Daily Word (/nf word, ns.DailyWordPlay, ns.DailyWordOffer, ns.DailyWordDismiss)
   System/
     SlashCommands.lua   Custom Slash Commands and their editor (ns.SlashCommandList, ns.RefreshSlashCommands)
     Performance.lua     QoL > System > Performance: recommended game settings and their backups
@@ -131,6 +133,8 @@ NaowhForever_QoL/
     crosshair_ring.tga  the Crosshair's ring
     MouseRing/          the Mouse Ring's rings, glows and trail
     Glimmer/            Glimmer's glow, flare, ring, beam and bracket, drawn by
+                        Tools/media/make_media.py
+    Flight/             the Flight Timer's Land Early and game button icons, drawn by
                         Tools/media/make_media.py
     TopBar/             the Top Bar's button icons and resting glyph
   README.md           this file
@@ -551,6 +555,9 @@ NaowhForever_QoL/
   unit only, so the rest of the raid's power and aura events never reach it; drinking is read
   from each aura event's own changes; a burst of roster events or mana ticks is one redraw
   (0.25s). Unit names are made once, so a roster pass makes no strings.
+- Healer Mana's Growth Direction holds the top or bottom edge of the four-healer sample box placed in
+  the HUD Editor, so the list starts at that edge whatever the group size. In the HUD Editor it is
+  placed by its centre, as every mover saves it.
 - Drink is found by the name of spell 430 (in the client's language), which is the buff's. Auras
   go secret during boss pulls; the last answer stands until they clear.
 - Unit data can come back secret in restricted content, and is never compared then. While a
@@ -585,8 +592,11 @@ NaowhForever_QoL/
   `fromNodeID * 10000 + toNodeID`, generated from the TaxiPath data of WoW Forever build
   1.60.1.69913.
 - Flight Games (`flightGame`) is the one choice of what opens by itself when a flight starts: the
-  button only, the Quiz or the Aim Trainer (Off hides the button). It was migrated once from the
-  old `quizFlight` and `aimAutoFlight`.
+  buttons only, the Quiz, the Aim Trainer or the Daily Word (Off hides the game buttons). It was
+  migrated once from the old `quizFlight` and `aimAutoFlight`.
+- The Flight Timer has one icon button per game (the Quiz, each Aim Trainer mode and the Daily
+  Word), so a game opens in one click. A game whose feature is off keeps its button, greyed out,
+  with a tooltip saying where to turn it on, as the old Games menu did for the Aim Trainer.
 - Flight times come from the route data at 30.4 yards a second (`FLIGHT_SPEED`), fitted to
   measured Classic flight times. Frequent Flier, node 110300 of the Adventure Legacy tree (1188),
   makes flight path mounts 20% faster; Legacy perks are bought per character, and a character
@@ -667,7 +677,7 @@ NaowhForever_QoL/
   limited (12 a minute per sender, 400 senders) and capped (200 entries a mode, the weakest and
   oldest dropped first). A best is kept only from the player its GUID names, found in your group
   or guild (`ns.SenderIs`), and an entry saved under one name is not replaced from another.
-- The Aim Trainer opens from /nfaim, the Flight Timer's Games button or a flight starting (Flight
+- The Aim Trainer opens from /nfaim, the Flight Timer's mode buttons or a flight starting (Flight
   Games). A miss costs 50 points and pops a "-50" where it landed. Every round is the same for
   everyone (fixed 30s length, target size and play area), so bests compare on the leaderboard;
   `ns.AimRules.Ceiling` caps a believable score (20 clicks a second at most) so a forged one is
@@ -782,48 +792,78 @@ NaowhForever_QoL/
 - A reminder is fitted to its text only with a background, so elements anchored to it keep their spot.
 
 ### Quiz
+- The Quiz and Flight Timer use HIGH strata, like the Aim Trainer, so reminder text stays behind their controls.
 - `CAMPFIRE_SEATED` (1229739) is Forever's "Welcoming Campfire" aura, present only while seated at a campfire (probed 2026-09-24). "Campfire Nearby" (1283391) is an area aura from simply walking past one, so it is not used.
 - Auras cannot be read in combat, so the camp check pauses there rather than reading a missing aura as having walked away.
 - A dismiss with no reason is the close button; one with a reason closes only what that reason opened, so landing never shuts a quiz opened by hand.
 - In `QuizData.lua` the first answer is the right one; the quiz shuffles them before showing.
 
+### Daily Word
+- Everyone gets the same word on the same day without any server: the day is the one the next
+  daily reset falls on, less one (`GetServerTime` plus `C_DateAndTime.GetSecondsUntilDailyReset`,
+  in days), so the word changes at the daily reset, and `FIRST_DAY` (20741, 15 October 2026 UTC)
+  is #1. Day N's answer is the Nth in `ns.DailyWordAnswers`, starting over after the last.
+- `Tools/build/daily_word.py` shuffles the answers with a fixed seed, so a run gives the same
+  order. Rebuilding with other sources, words left out or seed changes the words of days already
+  played, and players comparing a day's result would have had different words.
+- The words are public domain: the answers are the five-letter words of 12dicts' 2of12 also in its
+  3esl learners' list, less plurals and past tenses and a hand-picked list of slurs and crude
+  words; every answer and every five-letter word of ENABLE is accepted as a guess. 12dicts asks
+  for acknowledgment, which is on the Credits page.
+- The words are two strings of five-letter words, not tables: the accepted ones are sorted, so a
+  guess is a binary search, and nothing is built when the file loads.
+- The letters are typed into an invisible edit box over the grid, which keeps the keyboard while
+  it has focus: Play and the game buttons focus it, a flight opening it by itself does not, and
+  Escape, a finished game and closing it all let go.
+- A result is saved for the account, so every character shares the day's game, streak and best.
+  A streak counts consecutive days won; a day skipped breaks it.
+- Shared results mark each letter with raid target icons, `{rt4}` (green triangle) in place,
+  `{rt1}` (yellow star) elsewhere in the word and `{rt5}` (moon) not in it: chat cannot color text
+  or show the colored squares other word games share.
+
 ### Boat and Zeppelin Timers
-- One Arrived or Departed click records a sighting against `GetServerTime`. Click at the actual
-  arrival or departure, rather than partway through its stop. Another click corrects the phase.
-- `TransportData.lua` freezes Journeys' dwell and leg data with its boat/zeppelin speeds:
-  each period is the sum of every dock's dwell plus every leg's yards divided by speed.
-  Run `lua5.1 Tools/build/transport.lua` after rebuilding Journeys' network or changing its speeds.
-  The generated file loads in QoL, so Journeys and Town Map can both stay disabled.
-- These periods are path-length estimates, not measured Forever schedules. Every countdown
-  says Estimate; acceleration, teleports and server changes can cause drift.
+- The game draws nothing for a boat or zeppelin on the minimap: no tracking type, area POI or
+  vignette covers them, and the minimap's own mouseover tooltip comes from the engine
+  (`GameTooltip:SetMinimapMouseover`) with nothing an addon can read or extend. So each stop gets
+  its own minimap pin, placed by `Parts.MinimapLayer` (Shared/UI/MinimapPins.lua) like Glimmer's.
+- A pin sits where the ship waits at its stop (Journeys' stop point, the taxi path node with a
+  delay), not at the town map's dock pin: the Horde towers each hold two zeppelins about 50 to 60
+  yards apart, so one pin per tower could not tell which ship a click recorded. `PIN_SIZE` (16)
+  keeps the two pins of a tower apart at the default zoom; `MAX_PINS` (3) is the most stops one
+  map has (Auberdine's).
+- A left click on a pin records an arrival and a right click a departure, against `GetServerTime`.
+  Click at the actual arrival or departure, rather than partway through its stop. Another click
+  corrects the phase.
+- The tooltip's countdown is redrawn every `UPDATE_EVERY` (1 s) only while the pointer is on a
+  pin. The pins are placed only on a zone or loading event; the layer moves them while you move.
+- `TransportData.lua` is generated by `lua5.1 Tools/build/transport.lua` from Journeys' ships, one
+  entry per ship stop. A ship with a published cycle time uses it: warcraft.wiki.gg's "Travel
+  guide to zeppelins and boats" gives Undercity-Orgrimmar every 3:59 and Undercity-Grom'gol every
+  5:15, with every ship docked 60 seconds (the Feathermoon Ferry 30). Journeys' path-length
+  estimate (each dock's wait plus each leg's yards over its flat speed) had those two at 6:44 and
+  6:08, outside the refine band, so a second sighting could never correct them.
+- Every other ship keeps Journeys' estimate until it is timed in game: the flat speed ignores
+  acceleration, so it can be well off. Rebuild after Journeys' network or speeds change.
 - A second sighting of the same kind (arrival after arrival, departure after departure) at the
-  same dock measures the period: the time between them divided by the whole cycles in it. It is
-  kept only when exactly one cycle count puts it within `REFINE_BAND` (15%) of the generated
+  same stop measures the period: the time between them divided by the whole cycles in it. It is
+  kept only when exactly one cycle count puts it within `REFINE_BAND` (15%) of the data's
   period; otherwise the sighting just re-anchors the phase. The measured period is saved with it.
 - An estimate more than `STALE_CYCLES` (6) cycles past its last sighting shows as out of date
   instead of a countdown: by then a small period error has added up to a large phase error.
-- Docks and routes come from `TownTravel.lua`. A shared tower is one point, so Nearby picks its
-  first route; choose the other in Travel settings. Sightings are keyed by the ship's stop at a
-  dock (`sighting` in the data), so the three-stop Southshore boat's two routes at each of its
-  docks share one sighting, while two zeppelins at one tower keep their own.
-- The HUD shows only within `NEAR_YARDS` (200) of the selected dock. This allows for the pin
-  being in the water or above the platform. Selecting a remote dock does not show a remote HUD.
-- Sightings are saved in the account settings per realm (`transportSightings`), not the
-  profile: a realm's transports run on the server's clock whichever character watches them.
-  Turning the feature or QoL off keeps them; Reset removes the selected dock's.
+- The three-stop Southshore boat is one pin at each of its docks, naming both places it sails
+  on to.
+- Sightings are saved in the account settings per realm (`transportSightings`), keyed by stop, not
+  the profile: a realm's transports run on the server's clock whichever character watches them.
+  Turning the feature or QoL off keeps them.
 - Each login and enable drops sightings older than the last weekly reset (from
   `C_DateAndTime.GetSecondsUntilWeeklyReset`), since the weekly restart restarts the
-  transports. An unscheduled restart is not detectable; only a new sighting fixes that phase.
-  Enabling prunes only once `IsLoggedIn`; at login, PLAYER_ENTERING_WORLD prunes.
+  transports, and sightings of stops no longer in the data. An unscheduled restart is not
+  detectable; only a new sighting fixes that phase. Enabling prunes only once `IsLoggedIn`; at
+  login, PLAYER_ENTERING_WORLD prunes.
 - A backwards server clock suspends an estimate until a fresh sighting.
-- Positions come from `UnitPosition`, in the same world yards as `C_Map.GetWorldPosFromMapPos`,
-  so a proximity check allocates nothing; each dock's world point is worked out once.
-- The HUD updates only during a visible countdown, every `UPDATE_EVERY` (1 s), including a
-  proximity check for riding away. Zone, loading and movement events refresh proximity. Only
-  while moving on a map with docks does the event frame check every `MOVE_EVERY` (0.5 s), so
-  crossing the radius shows/hides the HUD without waiting for the player to stop. Riding a
-  transport into a dock's zone refreshes through the zone events. Disable unregisters all events
-  and stops both updates.
+- Each stop's map position is worked out once, with `C_Map.GetMapPosFromWorldPos`, the first time
+  its map is shown. Disable unregisters the events and hides the pins; nothing is built until the
+  feature is first on in a zone with a stop.
 
 ### Mail
 - Quick Attach puts in one stack at a time, from a scan made at the click: each is checked in its bag slot and on the cursor before it goes in, and the next goes only once the last has landed (MAIL_SEND_INFO_UPDATE).
@@ -853,6 +893,7 @@ NaowhForever_QoL/
 
 ### Skyborne Spots
 - The game marks neither ley lines nor Elemental Convergences, so the spots come from two places: the list every player starts with (`SkyborneData.lua`, from tr0tsky's Skyborne Ley Line & Convergence Marker, under its MIT licence, whose notice stays in that file) and the ones this account finds. Casting the racial on a spot gives its buff, and where it was cast is saved.
+- The shipped list is tr0tsky's v0.4.0 data, 76 ley lines and 56 convergences, after Forever added spawn spots in most Eastern Kingdoms and Kalimdor zones. A spot this account found before it shipped is dropped from the found list on the first map draw of a session (`PruneFound`), so it is not pinned twice.
 - `SAME_SPOT` is 40 yards: a find this close to a known spot is that spot. `MIN_BUFF` is 60 s: the spot's buff lasts minutes, not a moment.
 - The game applies the buff a moment after the cast, so it is looked for `FIRST_LOOK` after and then up to `MAX_TRIES` times, `RETRY_DELAY` apart. `CAST_SLACK` lets a buff that started just before the cast's own time count.
 - Auras are secret in combat: the buff is read only while readable, and through pcall all the same. A cast in combat waits for combat to end.
@@ -873,6 +914,7 @@ NaowhForever_QoL/
 ### Town Map
 - The service NPCs (`Shared/Game/Towns.lua`, which the Training Planner and Professions read too) come from Classic Era data: `[uiMapID] = { { x, y, category, name, title, class token (class trainers), factions ("A", "H" or "AH"), optional NPC ID } }`, x and y in map percent. NPCs Forever added sit last in each map's list. Forever redrew Stormwind, Mulgore, Redridge and the Eastern Plaguelands, so Classic positions there went through world coordinates.
 - `ns.TownCapitals` lists the capitals' maps: the game reports them as zones, so this is the only way to tell.
+- The town pins, the Boat and Zeppelin Timers, the Flight Point Reminder, Glimmer's spots and the Waypoint Pin read a map's data through `Places.SameMap`, so Zephras Isle's second map (2665) shows 2521's (Shared/README.md, Why).
 - `/naowh townaudit` checks that data against Forever by standing at each NPC: opening their window records where you are next to where the data puts them, in the account store (`townAudit[mapID][name]`).
 - The hint lines' light blue (`HINT`) goes through `SoftBlue`: the shade it always was, or the theme's lighter Accent once a theme changes the Accent.
 - The map calls `CheckMouseButtonPassthrough` on every acquired pin, and its SetPassThroughButtons is protected: from our refresh it is blocked in combat. Town pins take no clicks, so clicks reach the map anyway; zone exits and docks are separate clickable pins, so the vendor and trainer pins stay click-through. A zeppelin tower's pin has a second destination on right click. Their click opens the map with `C_Map.OpenWorldMap`, never the map's `SetMapID`: written from addon code, the map's `mapID` stays tainted for the session, and the next map opened in combat blocks the quest pins' SetPassThroughButtons.
@@ -918,6 +960,8 @@ NaowhForever_QoL/
 - Auto Repair and Auto Sell Junk work at the vendor whether or not the reminder is on. Reagents are cached at switch-on so the reminder can name ones the client has not seen this session.
 
 ### Waypoint Pin
+- Quest Objectives and Downward Arrows are independent switches, initially off. Objectives come from the tracked quest or guide context and refresh on quest-log changes; unfinished objectives keep the quest pin visible inside its area. The three chevrons use the existing shared arrow art and disappear in off-screen and arrival modes.
+- Follow RestedXP is initially off and uses the shared guide waypoint feed. Guide destinations skip our manual-pin auto-clear; if native navigation ends at arrival, the original guide arrow returns until the next guide destination. A manual pin temporarily takes priority until the next guide destination.
 - It follows the game's navigation frame (`C_Navigation`), so quests, your corpse and map pins get it as well as `ns.PlaceWaypoint`'s spots, which it names. A user waypoint counts as ours when it lies within `SAME_SPOT` (map percent) of `ns.placedWaypoint`.
 - A map pin's or corpse's navigation point is the spot on the ground: the ring at the line's foot goes there and the pin stands above it. A quest giver's is over their head, where the pin goes as it is, with no line down.
 - The game clears a map pin on arrival, but it keeps tracking a quest, and Forever reports a quest reached only right on its point. So for a tracked quest the pin and cue go within `QUEST_NEAR` (40 yards) of its point, the quest's area or the quest giver, and come back past `QUEST_LEAVE` (55), so walking about the area does not make them flicker. The game has no call that says you are inside a quest's area (Forever's QuestLog and Navigation docs: only map points, `IsOnMap` and a display state), so the distance stands in for it. Other targets use Arrival Distance (`waypointArrive`, 5 yards by default) and come back `LEAVE_MARGIN` (2) yards past it. The navigator stays.
@@ -1122,8 +1166,9 @@ NaowhForever_QoL/
 - The game does not tell an addon where its tracking dots are, and it cannot switch tracking for you:
   Find Herbs and Find Minerals are casts, which only a click may start. So the minimap icons come from
   where Wowhead Forever has each herb and vein growing (`ns.GlimmerSpots`, unpacked from
-  Data/Spots.lua on first use), and herbs and ore show together whatever you track. The game's own dot on
-  top of an icon is a node up right now.
+  Data/Spots.lua on first use), and herbs and ore show together whatever you track. The icons draw over
+  the game's tracking dot, so while Find Herbs or Find Minerals tracks (`MINIMAP_UPDATE_TRACKING`),
+  that kind's icon moves onto its ring and the dot shows inside the ring when the node is up.
 - The minimap shows at most `MINIMAP_MAX` icons, the spots inside its view. Placing them is
   `Parts.MinimapLayer` (Shared/UI/MinimapPins.lua): it moves them only while you move or the minimap
   turns.
@@ -1131,8 +1176,10 @@ NaowhForever_QoL/
   not something to rely on, so it waits for the fight to end, and only then does `PLAYER_REGEN_ENABLED`
   redraw the icons. A skill-up repaints their rings, and redraws them only when it changes whether
   herbs or ore show. Gathered on the Map alone never loads the data.
-- Only My Professions shows herbs to an herbalist and ore to a miner; a character with neither sees
-  both, so the icons still help someone deciding what to learn.
+- Only My Professions shows herbs to an herbalist and ore to a miner, and nothing to a character with
+  neither (the spot data is not even unpacked); players read a character with no gathering showing both
+  as the setting not working. It is a Minimap Icons setting: Gathered on the Map shows the account's
+  gathers on any character.
 - A gather is noted when the loot window opens while the soft target is a herb or vein in reach and
   the loot came from it (`GetLootSourceInfo`), so it needs no spell IDs and a corpse looted beside a
   node does not count. One node counts once per loot window, even if it is opened again. Where it is
