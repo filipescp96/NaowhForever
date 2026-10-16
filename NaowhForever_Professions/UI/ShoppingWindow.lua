@@ -40,6 +40,7 @@ local EVENTS = { "BAG_UPDATE_DELAYED" }
 local TEXT_TITLE = ns.L("Shopping List")
 local TEXT_SUBTITLE = ns.L("Crafts, other items and what to buy.")
 local TEXT_HINT = ns.L("Add an item above, or click Add to List under a recipe: what you need to buy lands here.")
+local TEXT_QUEUE_HINT = ns.L("Add an item above, or add a recipe to the Crafting Queue: what you need to buy lands here.")
 local TEXT_CRAFTS, TEXT_ITEMS, TEXT_MATERIALS, TEXT_VENDOR, TEXT_MADE = ns.L("Crafts"), ns.L("Other Items"),
     ns.L("Materials"), ns.L("Buy from Vendor"), ns.L("Make First")
 local TEXT_CLEAR = ns.L("Clear")
@@ -58,7 +59,7 @@ local TEXT_MAKE, TEXT_BUY = ns.L("Make"), ns.L("Buy")
 local TEXT_ADD = ns.L("Add")
 local TEXT_NOT_FOUND = ns.L("No item found for that. Use a link, an item ID, or the name of an item you have seen.")
 local TEXT_OFF = ns.L("Turn on the Shopping List in the Professions settings first.")
-local TIP_CLEAR_HELP = ns.L("Empties the shopping list.")
+local TIP_CLEAR_HELP = ns.L("Empties the Shopping List and the Crafting Queue when it is enabled.")
 local TIP_REMOVE, TIP_REMOVE_HELP = ns.L("Remove"), ns.L("Takes this craft and its materials off the list.")
 local TIP_MORE, TIP_MORE_HELP = ns.L("One More"), ns.L("Adds the materials for one more craft.")
 local TIP_FEWER, TIP_FEWER_HELP = ns.L("One Fewer"), ns.L("Takes the materials for one craft off the list.")
@@ -73,13 +74,17 @@ local TIP_ADD_HELP = ns.L("Puts that many of the item on the list.")
 local TEXT_CONSUMABLES = ns.L("Consumables")
 local TIP_CONSUMABLES_HELP = ns.L("Picks food, flasks, elixirs and more for your class to buy.")
 
-local window, side, scroll, input, qty, empty, total, clear, events
+local window, side, scroll, input, qty, empty, total, clear, picker, pickerFullWidth, events
 local crafts, craftPool, items, itemPool, madeList, madePool = {}, {}, {}, {}, {}, {}
 local pools = { crafts = {}, items = {}, materials = {}, vendor = {}, made = {} }
 local heads = {}
 
 local function On()
     return S.Get("enabled") and S.Get("shoppingList")
+end
+
+local function QueueOn()
+    return On() and S.Get("craftQueue")
 end
 
 local function ByCraftName(a, b)
@@ -198,7 +203,8 @@ local function DrawCrafts(y)
         if not row.remove then
             StepButtons(row, Shopping.Remove, Shopping.Step, TIP_REMOVE_HELP, TIP_MORE_HELP, TIP_FEWER_HELP)
         end
-        Widgets.EnableButton(row.minus, e.craft.count > 1)
+        local queued = e.craft.queueCount
+        Widgets.EnableButton(row.minus, e.craft.count - (queued or 0) > (queued and 0 or 1))
         row.key, row.spell, row.item = e.id, e.id, nil
         row.icon:SetTexture(e.craft.icon or C_Spell.GetSpellTexture(e.id))
         row.name:SetText(TEXT_ROW:format(e.craft.count, e.craft.name or TEXT_UNKNOWN))
@@ -355,6 +361,7 @@ local function RenderWindow()
     y = DrawMade(made, plan, y)
     side:SetHeight(math.max(1, -y))
     local listed = #crafts > 0 or #items > 0
+    empty:SetText(QueueOn() and TEXT_QUEUE_HINT or TEXT_HINT)
     empty:SetShown(not listed)
     total:SetText((#materials > 0 or #vendorMaterials > 0)
         and Shopping.Estimate(materials, TEXT_UNPRICED, vendorMaterials) or "")
@@ -397,7 +404,15 @@ local function DropClick()
     if GetCursorInfo() then OnReceiveDrag() end
 end
 
+local function FitPicker()
+    local text = math.max(window.title:GetUnboundedStringWidth(), window.subtitle:GetUnboundedStringWidth())
+    local fits = text + St.BAR_GAP + pickerFullWidth <= picker:GetRight() - window.title:GetLeft()
+    picker.label:SetShown(fits)
+    picker:SetWidth(fits and pickerFullWidth or picker:GetHeight())
+end
+
 local function OnShow()
+    FitPicker()
     for _, event in ipairs(EVENTS) do events:RegisterEvent(event) end
     RenderWindow()
 end
@@ -408,6 +423,7 @@ end
 
 local function OnSized(_, width)
     side:SetWidth(width - INSET - SCROLLBAR - SCROLL_GAP)
+    if window:IsShown() then FitPicker() end
 end
 
 local function BuildInput()
@@ -442,8 +458,9 @@ local function BuildBody(top)
     Head("vendor", TEXT_VENDOR)
     Head("made", TEXT_MADE)
     empty = ns.Font(window, SUMMARY_SIZE, nil, T.muted)
-    empty:SetPoint("CENTER", scroll, "CENTER")
-    empty:SetWidth(WIDTH - 2 * INSET)
+    empty:SetPoint("LEFT", scroll, "LEFT")
+    empty:SetPoint("RIGHT", scroll, "RIGHT")
+    empty:SetJustifyH("CENTER")
     empty:SetWordWrap(true)
     empty:SetText(TEXT_HINT)
 end
@@ -464,8 +481,9 @@ local function OnConsumables()
 end
 
 local function BuildBar(close)
-    local picker = Parts.BarButton(window, St.BAG, TEXT_CONSUMABLES, TIP_CONSUMABLES_HELP, OnConsumables,
+    picker = Parts.BarButton(window, St.BAG, TEXT_CONSUMABLES, TIP_CONSUMABLES_HELP, OnConsumables,
         TEXT_CONSUMABLES)
+    pickerFullWidth = picker:GetWidth()
     picker:SetPoint("RIGHT", close, "LEFT", -St.BAR_GAP, 0)
     window.subtitle:SetPoint("RIGHT", picker, "LEFT", -St.BAR_GAP, 0)
     window.subtitle:SetWordWrap(false)

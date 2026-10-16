@@ -72,6 +72,7 @@ NaowhForever_QoL/
     GcdTracker.lua      GCD Tracker (ns.GCDSpell)
     FocusCastBar.lua    the Focus Cast Bar
     DamageMeterLayout.lua the game's damage meter Bar Height, saved in the active Edit Mode layout
+    DamageMeterPreview.lua the card's preview: a mock of the game's meter drawn with the card's picks
     DamageMeterSkin.lua the card Default Damage Meter: the game's meter in the theme, and its place
     StealthReminder.lua the Stealth Reminder
     PetTracker.lua      the Pet Tracker
@@ -116,6 +117,9 @@ NaowhForever_QoL/
     FlightData.lua      each flight route's flown length (ns.FLIGHT_ROUTES), generated
     Flight.lua          the Flight Timer, Flight Games and flight times on the flight map
     FlightPoint.lua     zone-entry and nearby-town flight point reminders
+    TransportData.lua   estimated dock periods and dwells, generated from Journeys data
+    TransportTimes.lua  saved per-realm server-clock sightings and estimates (ns.TransportTimes)
+    Transport.lua       Boat and Zeppelin Timers, its HUD, nearby selection and Travel settings
     AimTrainer.lua      the Aim Trainer (/nfaim, ns.AimRules, ns.AimPlay, ns.AimOffer)
     AimBoard.lua        the Aim Trainer's leaderboard (ns.AimBoard)
     QuizData.lua        the quiz questions (ns.QUIZ_QUESTIONS)
@@ -138,7 +142,7 @@ NaowhForever_QoL/
 - The Damage Meter Skin never hides or re-lays out the game's meter: it recolors its textures and
   fonts after the game sets them (hooksecurefunc on each entry, a scroll box callback for new
   ones), and remembers the art, the font with its flags and shadow, and the bar's atlas to give
-  them back when the switch goes off. It reads no damage numbers, which are secret in combat.
+  them back when the switch is off and nothing is picked. It reads no damage numbers, which are secret in combat.
   Bar Texture swaps the file on the bar's own texture, which the game only ever colors. Font and
   Outline are written once per change of a setting, since the game never sets them again; the
   colors are the theme's tokens until one is picked, as in the Damage Meter module.
@@ -152,8 +156,88 @@ NaowhForever_QoL/
   `SetVertexColor`, their first look remembered to give back; sizes are one setting each for the
   names, the amounts and the title, 0 keeping the game's own, which Edit Mode's Text Size still
   scales.
-- The card is in sections (Window, Bars, Text, Title Bar, Spell Panel, Reset) that mix the reskin's rows, which wait
-  for the Reskin switch, with the game's own settings, which do not.
+- Theme (`damageMeterTheme`) is only where a color that was not picked comes from (`Resolve`): the game's own
+  (Blizzard), the addon's current theme (`ns.THEME`, the default), or the palette of one of the themes, read
+  from `ns.ThemePalette` and kept until the next apply (`Token`, `palettes`). A color that is picked applies
+  whichever it is, so every row works in all of them, and choosing a theme repaints at once with no reload,
+  since the meter reads the palette as it paints. Everything that follows the theme reads it the same way
+  (`Color`): Accent bars, the Accent scroll bar and the icon borders are the chosen theme's, not the current
+  one's. With Blizzard a flat texture that has no color goes back to
+  its atlas (`Unflat`), a text keeps the color it had, the bar's shadow and edge stay, and the spell panel's
+  opacity waits for a color of its own or the Window Color (the row says so). That look has its own Font, Bar
+  Color, Bar Texture and Icon Border (`damageMeterGameFont`, `damageMeterGameBars`, `damageMeterGameTexture`,
+  `damageMeterGameIconEdge`), which start as the game's own, so it does not leave the text in the addon's font,
+  the bars in the theme's accent or its gradient, nor the icons bordered (`FontPath` answers nothing for the game's
+  face, and `Face` then writes the face the text had). Each is a row of its own that the other look hides, so the
+  card's Reset and its count of changes see every one.
+- The Reskin switch is the theme's colors, not the switch of the whole card. The skin runs when it is on or when a
+  row of the card has been picked (`Customized`: each of `PICKS` that is not its default, read through `Raw` and
+  `Default`, once and kept until a setting changes or a profile is applied, since the hooks ask at every refresh of
+  every bar), so a player who wants the game's own look with a font, a hidden timer or a bar opacity does not have
+  to reskin. With it off, `Blizzard()` is true and `Token` answers nothing: every color that is not picked is the
+  game's own, exactly as with the Blizzard (Default) theme, and the rows are that look's. Nothing picked and the
+  switch off runs nothing, as before: no hook, no tick, and the first pick starts it. Theme is the only row that
+  waits for the switch. The picks of the theme look's own (`damageMeterBars`, `damageMeterTexture`,
+  `damageMeterIconEdge`, `damageMeterFont`) are not in `PICKS` for that reason: they do nothing with it off.
+- Picks only apply with the Reskin switch off once `damageMeterPicksLive` is true, which the first change of a
+  row in `PICKS` sets. Before that release the picks only applied with the switch on, so a player who picked
+  colors, turned Reskin off and kept the game's look would otherwise have them painted on it after updating.
+  Their saved picks are not touched: they apply with Reskin on, as before, and with it off from the first pick
+  the player makes, all together.
+- The title bar's timer, session button, settings button and minimize button are each switched off with
+  `SetAlpha(0)`, never a Hide, and a post-hook on each one's `SetAlpha` puts a part the game raises back to 0
+  (`Title.KeepAlpha`); the title fade keeps them at 0 (`TitleAlpha`) and nothing picked, with the reskin off, gives
+  them back. The
+  list's button is two switches, since it is a text and an arrow: the text is `TypeName`'s own opacity, and the
+  arrow is every texture of the dropdown but its texts (`Title.Inner`: a text answers to `SetVertexColor` as a
+  texture does, so the object type is asked, and each is given back its own opacity, since a highlight
+  starts at 0). A hidden part is also made one pixel wide (`Title.Fit`, its width kept to give back, and a
+  post-hook on `SetWidth` for the game's own), so what the game anchors to its edge closes the gap instead of
+  leaving the room it had; the list's button closes only when both of its switches are off. A hidden button
+  still takes a click where it was, as an opacity of 0 does not turn the mouse off.
+  The game hangs the list's button from the timer's right edge, so the timer is in front and the title after it,
+  and `Title.Layout` leaves that order: the timer is one anchor of its own and a width of 0, so it is as wide as
+  its text and the title is at the far left when there is no time, and a post-hook on the timer's `SetPoint` and
+  `SetWidth`, on the dropdown's `SetPoint` and on the title's `SetText` lays it out again when the game or the
+  list changes. The two X offsets move one part each: the timer's moves the timer, and the button, which hangs
+  from it, is given the same offset the other way so the title stays; the title's moves the text only. Only the
+  game's own anchors are added to (`Title.homes`, read once and given back when the skin goes off, and not read at
+  all when an offset is secret: the part then stays where the game has it), and nothing is measured: where a
+  text starts and how wide it is are numbers the game keeps secret in some states, and adding them raised
+  "arithmetic on a secret number value" and cut the rest of the skin short. A timer hung after the title was
+  tried and dropped: the title's frame can be as wide as the window, so the end of it is not the end of the text,
+  which could not be measured. The timer's offset puts it there when it is wanted.
+  The game anchors the title's text flush to the arrow (an x of 0), so while the arrow shows the text's left
+  anchor, and only that one, is given `TITLE_GAP` (4) pixels more, and a hidden arrow has no gap. The gap waits
+  for a pick (`Title.Spaced`: `damageMeterPicksLive`, or a title bar option that is not its default), so a
+  player with Reskin on who picks nothing keeps the title where it was before. Themed buttons
+  tint the art of the buttons only (`Title.Glyphs`): the list's text and the session's letter are texts with colors
+  of their own, and tinting them changed the title. The parts are anchored in an
+  order where no anchor depends on what depends on it (the game raises "Cannot anchor to a region dependent on
+  it" otherwise). `Title.placing` keeps the layout's own `SetPoint` and `SetWidth` from laying it out again
+  through the hooks; `Apply` clears it, so a layout that raised an error does not stop the next one.
+- The skin's title bar parts are fields of one `Title` table, not locals: the file is close to the 200 locals
+  a Lua 5.1 chunk can have.
+  The right-click menu is a hook on the window's
+  `OnMouseUp`, made only when Right-Click Menu is on, that opens `MenuUtil.CreateContextMenu` with a checkbox for
+  each switch, so a part that was switched off can be switched on from the window.
+- The card's preview (`DamageMeterPreview.lua`) is a mock of the meter on the card's stage (`studio`), not the
+  game's own window: the game shows sample bars only inside Edit Mode (`SetIsEditing`), and calling that from an
+  addon taints the meter's own refresh, which reads data that is secret in combat. The mock is drawn from
+  `ns.DamageMeterLook.Describe` (what each pick makes of each part, from the same functions the skin paints with,
+  so the two cannot say different things) and from the game's own settings in `DamageMeterLayout` (width, bar
+  height, spacing, icons, class color, style, opacities and text size), so it follows every row at once, with no
+  reload and no fight. Its art is the game's own atlases, with the buttons sized and anchored as the game's templates
+  have them (the mode button `common-dropdown-a-button-shadowless`, the cog `...-settings-shadowless`, the session's
+  box `common-dropdown-c-button` reaching 7 pixels past its frame). Nothing in it is read from the game's window.
+  The page is drawn again for a change of the card's own settings, but not for the game's (they are saved through
+  Edit Mode and `DamageMeterLayout` keeps the value on its way), and not while a slider is held, so the preview
+  repaints itself: a frame after any QoL setting changes (after the skin has taken it, so it reads what the skin
+  will paint) and whenever `DamageMeterLayout` changes a value (`Refresh`). It does nothing while it is not shown.
+  Its stage has one height, so the page does not move under a slider: a window taller than the stage is scaled.
+- The card is in sections (Game Settings, Look, Window, Bars, Text, Title Bar, Spell Panel, Reset). The game's own
+  settings are first, in a section of their own, since they are written through Edit Mode and the game may only
+  take them at a reload (the row says so); the skin's rows are below, and work with the Reskin switch off too.
 - The game's own settings in it (`DamageMeterLayout.lua`) are the game's list for its damage
   meter, written through `C_EditMode`: it copies the manager's layout info (never writes into it),
   changes the values in the copy and saves that, so the game applies it with its own code and
@@ -701,6 +785,44 @@ NaowhForever_QoL/
 - Auras cannot be read in combat, so the camp check pauses there rather than reading a missing aura as having walked away.
 - A dismiss with no reason is the close button; one with a reason closes only what that reason opened, so landing never shuts a quiz opened by hand.
 - In `QuizData.lua` the first answer is the right one; the quiz shuffles them before showing.
+
+### Boat and Zeppelin Timers
+- One Arrived or Departed click records a sighting against `GetServerTime`. Click at the actual
+  arrival or departure, rather than partway through its stop. Another click corrects the phase.
+- `TransportData.lua` freezes Journeys' dwell and leg data with its boat/zeppelin speeds:
+  each period is the sum of every dock's dwell plus every leg's yards divided by speed.
+  Run `lua5.1 Tools/build/transport.lua` after rebuilding Journeys' network or changing its speeds.
+  The generated file loads in QoL, so Journeys and Town Map can both stay disabled.
+- These periods are path-length estimates, not measured Forever schedules. Every countdown
+  says Estimate; acceleration, teleports and server changes can cause drift.
+- A second sighting of the same kind (arrival after arrival, departure after departure) at the
+  same dock measures the period: the time between them divided by the whole cycles in it. It is
+  kept only when exactly one cycle count puts it within `REFINE_BAND` (15%) of the generated
+  period; otherwise the sighting just re-anchors the phase. The measured period is saved with it.
+- An estimate more than `STALE_CYCLES` (6) cycles past its last sighting shows as out of date
+  instead of a countdown: by then a small period error has added up to a large phase error.
+- Docks and routes come from `TownTravel.lua`. A shared tower is one point, so Nearby picks its
+  first route; choose the other in Travel settings. Sightings are keyed by the ship's stop at a
+  dock (`sighting` in the data), so the three-stop Southshore boat's two routes at each of its
+  docks share one sighting, while two zeppelins at one tower keep their own.
+- The HUD shows only within `NEAR_YARDS` (200) of the selected dock. This allows for the pin
+  being in the water or above the platform. Selecting a remote dock does not show a remote HUD.
+- Sightings are saved in the account settings per realm (`transportSightings`), not the
+  profile: a realm's transports run on the server's clock whichever character watches them.
+  Turning the feature or QoL off keeps them; Reset removes the selected dock's.
+- Each login and enable drops sightings older than the last weekly reset (from
+  `C_DateAndTime.GetSecondsUntilWeeklyReset`), since the weekly restart restarts the
+  transports. An unscheduled restart is not detectable; only a new sighting fixes that phase.
+  Enabling prunes only once `IsLoggedIn`; at login, PLAYER_ENTERING_WORLD prunes.
+- A backwards server clock suspends an estimate until a fresh sighting.
+- Positions come from `UnitPosition`, in the same world yards as `C_Map.GetWorldPosFromMapPos`,
+  so a proximity check allocates nothing; each dock's world point is worked out once.
+- The HUD updates only during a visible countdown, every `UPDATE_EVERY` (1 s), including a
+  proximity check for riding away. Zone, loading and movement events refresh proximity. Only
+  while moving on a map with docks does the event frame check every `MOVE_EVERY` (0.5 s), so
+  crossing the radius shows/hides the HUD without waiting for the player to stop. Riding a
+  transport into a dock's zone refreshes through the zone events. Disable unregisters all events
+  and stops both updates.
 
 ### Mail
 - Quick Attach puts in one stack at a time, from a scan made at the click: each is checked in its bag slot and on the cursor before it goes in, and the next goes only once the last has landed (MAIL_SEND_INFO_UPDATE).

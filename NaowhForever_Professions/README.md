@@ -18,7 +18,8 @@ NaowhForever_Professions/
                        the window's shared state (P.State)
   Constants.lua        the numbers several files share: AH timeouts, the craft cap, coins, NPC rows (P.C)
   Data/
-    RecipeData.lua     where each recipe, rank and trainer is (ns.RecipeData), by hand from Wowhead Forever
+    RecipeData.lua     where each recipe, rank and trainer is (ns.RecipeData), by hand from Wowhead Forever;
+                       each recipe's yellow and grey skill from Tools/build/skill_thresholds.py
     VendorReagents.lua the reagents trade-goods vendors sell (P.VendorReagents)
     CooldownRecipes.lua the classic recipes on a cooldown (P.CooldownRecipes)
     ConsumableItems.lua the consumables the Shopping List offers, the stats each is for, each class's stats
@@ -31,6 +32,7 @@ NaowhForever_Professions/
   Favorites.lua        favourite recipes (P.Favorites, ns.ProfFavorites)
   RecipeFinder.lua     the unlearned recipes, what they need and where they come from (ns.RecipeFinder)
   RankAlert.lua        a profession ready for its next rank, in the window and once in chat (ns.ProfessionRank)
+  Auctions.lua         your active auction quantities, kept per character (P.Auctions)
   Filters.lua          the Filter menu's rules (P.Filters)
   Entries.lua          what the recipe list holds, by category and group (P.Entries)
   Orders.lua           craft orders: value, tip, messages, sending (P.Orders)
@@ -38,6 +40,7 @@ NaowhForever_Professions/
   BagRoom.lua          how many crafts the bags have room for (ns.CraftBagRoom)
   ShoppingPlan.lua     the shopping list's store (crafts and other items) and make-or-buy plan (P.Shopping)
   Consumables.lua      the consumables that suit you, by class, mana and level, the best marked (P.Consumables)
+  CraftQueue.lua       queued crafts, prerequisites, missing materials and click-driven execution (P.CraftQueue)
   Patterns.lua         favourites at a trainer, and their patterns to buy (P.Patterns, ns.TrainerServiceInfo)
   Disenchant.lua       the bag items Disenchant can take, the ones you keep, the next one (P.Disenchant)
   View/
@@ -45,6 +48,7 @@ NaowhForever_Professions/
     Widgets.lua        flat checkbox, skill bar, star, count box, Search AH button (P.Widgets)
     Popup.lua          the small window beside the trainer or the auction house (P.Popup)
   UI/
+    SkillThresholds.lua the optional difficulty line beneath a selected recipe (P.SkillThresholds)
     RecipeList.lua     the recipe list and its scrollbar (P.List)
     Reagents.lua       a recipe's reagent rows (P.Reagents)
     ProfitLines.lua    lined-up amounts and the crafting profit (P.Lines)
@@ -61,6 +65,7 @@ NaowhForever_Professions/
     ShoppingConsumables.lua the Consumables picker beside the Shopping List: search and favourites
     ShoppingVendor.lua Shopping List materials sold by the open merchant, with Buy and Buy All
     ShoppingList.lua   the shopping list beside the auction house: check and buy
+    CraftQueue.lua     the standalone Crafting Queue window (ns.ToggleCraftQueue)
     TrainFavorites.lua Train Favorites beside the trainer
     FavoritePatterns.lua Search Favorites AH beside the auction house
     CraftTimer.lua     Total Craft Timer
@@ -73,6 +78,26 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
 
 ## Why
 
+- Skill-up Thresholds is off by default. It creates its line only when an enabled recipe pane first
+  needs it. Selection and skill updates use the existing redraw path; this feature adds no events,
+  hooks, timers, route planning or polling.
+- Each recipe's `yellow` and `grey` in `RecipeData.lua` are written by `Tools/build/skill_thresholds.py`
+  from the game's own `SkillLineAbility` table (`TrivialSkillLineRankLow` and `TrivialSkillLineRankHigh`),
+  through `Tools/sources/wago.py` with the build's hotfixes. They sit on the recipe entries that already
+  exist rather than in a table of their own, which cost about 165 KB at login and 415 KB more once used;
+  on the entries they add about 55 KB. Rerun the tool when `wago.BUILD` changes or recipes are added: it
+  rewrites only those two fields. Only crafting skill lines and recipe categories are read;
+  contradictory ranges and conflicting duplicate spell rows are left out.
+- Orange starts at the skill the recipe is learned at (`skill`), not the table's `MinSkillLineRank`,
+  which is 1 for nearly every recipe. A recipe learned past its yellow is yellow from the start, so
+  yellow and green are at least the learn skill. Green is the rounded-down midpoint of yellow and grey.
+  A positive live `maxTrivialLevel` replaces the bundled grey, and green is recalculated with it.
+  A grey at or below yellow or the learn skill draws no line. These are difficulty ranges, not
+  measured skill-up probabilities. The recipe name's colour still comes from the game's
+  `relativeDifficulty`.
+- The line is drawn below the icon, with the description and reagents beneath it. Its current-skill
+  marker adds the profession's `skillModifier`. Linked professions have no marker or range: their
+  recipes belong to someone else, not the current character.
 - The on/off switches' defaults (`enabled` and each feature's switch) are read from
   `ns.FEATURES.professions`; their options keep their own defaults in `Professions.lua`.
 - Blizzard's window stays open under ours at zero alpha: hiding it would close the trade skill (its
@@ -122,6 +147,12 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   switch is on; bag totals are read from bag slots so equipped gear is never counted as bag stock.
   The list redraws on a Shopping List change only while the window is open: `/nf shopping` can
   change the list before the recipe window was ever built.
+- Your Auctions is opt-in. It reads the owner list only while the auction house is open, keeps the
+  latest active item quantities under the character's name and realm, as the Shopping List does, and
+  builds row markers only when needed. It asks for the owner list on opening the auction house and
+  after a post, but not after a cancel: the Auctions tab already asks again then, with the player's
+  sort, and its OWNED_AUCTIONS_UPDATED is read like any other.
+  Not Selling stays unavailable until the auction house has supplied the first complete owner list.
 - The rank banner pushes both columns down 46 while it shows. Filter is 76 wide for "Filter (3)".
   The Buy, Add to List and Create rows share one width, so they line up; the reagent rows end 4
   short of Create, hence the Buy row's 4 overhang.
@@ -180,6 +211,16 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   bought as they are, never made from parts; what was bought counts against them. Shift-click, a drag
   from the bags, an ID or an exact name adds one; the window is built on first open and listens to bag
   changes only while it shows.
+- The Crafting Queue starts off and creates no frames or hooks until first use. Adding a recipe queues its
+  cheaper prerequisites before the final craft and puts its missing auction-house materials on the
+  Shopping List. Start Queue only selects the next ready entry, and each Craft Next hardware click starts
+  one batch because Blizzard does not allow automated profession opening or unattended crafting. The
+  window stays open when the profession window closes.
+- The queue's Shopping List demand is derived: every finished craft and bag change during a run re-syncs
+  it, so a crafted queue leaves nothing behind. A row's +/- on the Shopping List changes only your own
+  count on top of the queue's, and X takes the row off, the queued craft included. The next entry is
+  selected only when its own profession is open; otherwise the open profession keeps its selection and
+  the queue waits on Open First. The `ns.Apply` hook acts only when the queue turns on or off.
 - The Consumables picker offers the Well Fed food, flasks, elixirs and stat scrolls of Naowh's consumables
   list (the one in his profile, from Wowhead Forever), the Buff Reminders' weapon stones and oils, the
   healing and mana potions in `Shared/Game/Consumables.lua` and the Smart Macros' bandages. Plain food and
@@ -211,6 +252,11 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   offered again.
 - The search box above the list keeps the rows whose name holds what is typed, any case. Typing and a star
   only lay out the rows already picked again, with no new pick; reopening the picker clears the search.
+- The Shopping List's Consumables button keeps its label only while the title, the subtitle and the whole
+  button fit side by side, measured when the window shows and as it is resized, so a longer translation
+  drops the label at a width where English keeps it. Without it the button is the square `Parts.BarIcon`
+  makes, as wide as it is tall. The empty-list message spans the list's current width, not the window's
+  starting one.
 - The shopping list makes a material from its parts, up to 4 levels down, only when whole crafts cost
   less than buying what is needed, and never from a recipe with a cooldown (it makes a few a day; a
   shared cooldown can read 0 on the spell). What was bought counts at every level, and a craft taken
@@ -274,7 +320,8 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
 - The window's slices: `test-profession-combat-close.lua`, `test-profession-window-drag.lua`
   (Takeover.lua), `test-profession-link-view.lua` (LinkView.lua), `test-profession-shift-click.lua`
   (AuctionHouse.lua), `test-profession-merchant-events.lua` (Vendors.lua),
-  `test-shopping-list-plan.lua` (ShoppingPlan.lua), `test-shopping-consumables.lua` (Consumables.lua),
+  `test-shopping-list-plan.lua` (ShoppingPlan.lua), `test-profession-craft-queue.lua` (CraftQueue.lua),
+  `test-shopping-consumables.lua` (Consumables.lua),
   and the looks in `test-icon-look.lua` and
   `test-qol-bars-look.lua`.
 - Vendor Shopping List routing and purchases: `test-profession-shopping-vendor.lua`.

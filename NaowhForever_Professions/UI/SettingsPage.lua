@@ -6,7 +6,7 @@ local S = P.Settings
 local Settings = ns.Shared.Settings
 local Group = Settings.Group
 
-local RECIPE_KEYS = { "recipeFinder", "rankAlert", "bagReagents", "bankReagents", "trainFavorites" }
+local RECIPE_KEYS = { "recipeFinder", "rankAlert", "bagReagents", "bankReagents", "trainFavorites", "skillThresholds" }
 local GATHER_LIFT = 8
 local GATHER_STAGE_H = 130
 local CRAFT_STAGE_H = 100
@@ -51,6 +51,10 @@ end
 
 local function FavoriteSearchOn()
     return On() and S.Get("searchFavoritesAH") == true
+end
+
+local function ShoppingOn()
+    return On() and S.Get("shoppingList") == true
 end
 
 local function ProfessionLine(index)
@@ -133,6 +137,8 @@ page:Card({
         .. "star right-click right click track recipe create all bags full chat link shift ctrl click",
     summary = RecipeSummary,
     rows = {
+        { key = "skillThresholds", label = "Skill-up Thresholds", toggle = true, needs = On, why = TEXT_OFF,
+          help = "Shows when the selected recipe turns yellow, green and grey beneath its name." },
         { key = "recipeFinder", label = "Unlearned Recipes", toggle = true, needs = On, why = TEXT_OFF,
           help = "Lists the recipes you have not learned yet below your own. Click one to see the skill it "
               .. "needs, what it costs and where it comes from: the nearest trainers, the vendor selling its "
@@ -227,6 +233,9 @@ page:Card({
         { key = "manualPatternScan", label = "Manual Favorite Scans", toggle = true, needs = FavoriteSearchOn,
           why = "Needs Search Favorites AH",
           help = "Adds Scan, Pause and Resume controls instead of searching every favourite automatically." },
+        { key = "ownedAuctions", label = "Your Auctions", toggle = true, needs = On, why = TEXT_OFF,
+          help = "Marks recipe rows whose results you have listed at the auction house.",
+          search = "not selling filter listed" },
         { key = "shoppingList", label = "Shopping List", toggle = true, needs = On, why = TEXT_OFF,
           help = "Adds \"- [1] + Add to List\" under a recipe's reagents: the materials Buy on AH would buy for "
               .. "that many crafts go on a shopping list, from anywhere. At the auction house the list shows "
@@ -234,6 +243,9 @@ page:Card({
               .. "scan, then Buy All goes through the list one material at a time, each bought only when you "
               .. "confirm its final price. A material you can make for less from its parts, such as a bar from "
               .. "ore, has its parts bought instead." },
+        { key = "craftQueue", label = "Crafting Queue", toggle = true, needs = ShoppingOn,
+          why = "Needs Shopping List",
+          help = "Queues crafts and prerequisites, and adds their missing materials to the Shopping List." },
         Group("Vendors"),
         { key = "vendorMaterials", label = "Crafts with Vendor Buys", toggle = true, needs = On,
           why = TEXT_OFF,
