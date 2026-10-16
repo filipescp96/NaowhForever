@@ -2,6 +2,8 @@
 local L = _G.NaowhForeverLocale or {}
 _G.NaowhForeverLocale = L
 
+L["Clicking the card also puts a skull on the rare, which your group can see."] = true
+L["Skull on Click"] = true
 L["Apply %s to every setting? Your positions, lists, notes and saved picks stay. Cannot be undone."] = true
 L["Applying a setup leaves your frames where you put them."] = true
 L["Keep My Positions"] = true
@@ -1441,6 +1443,19 @@ L["Blessings' own window, with every paladin's blessing for each class, Auto-Ass
 L["Blink When Red"] = true
 L["Blizzard Default"] = true
 L["Block %"] = true
+L["Boat and Zeppelin Timers"] = true
+L["Estimate the next arrival or departure from stops you record at a dock."] = true
+L["Dock and Route"] = true
+L["Track a nearby dock or choose a specific route to watch."] = true
+L["Nearby dock"] = true
+L["Record an arrival or departure to start the estimate."] = true
+L["Server clock changed; record a new sighting."] = true
+L["Estimate is out of date; record a new sighting."] = true
+L["Estimate: %s in %d:%02d"] = true
+L["arrives"] = true
+L["leaves"] = true
+L["%s: %s"] = true
+L["Departed"] = true
 L["Boat to Auberdine"] = true
 L["Boat to Booty Bay"] = true
 L["Boat to Feathermoon Stronghold"] = true
