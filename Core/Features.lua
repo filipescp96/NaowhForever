@@ -104,7 +104,11 @@ ns.FEATURES = {
         transportTimers = false,
         quizCamp = true,
         aimTrainer = true,
+        dailyWord = false,
         waypoints = true,
+        waypointRestedXP = false,
+        waypointObjectives = false,
+        waypointDownArrows = false,
     },
     topBar = {
         enabled = true,
