@@ -5,17 +5,20 @@ local P = ns.Professions
 local S = P.Settings
 
 local unavailable = {}
+local key
 
 local Favorites = {}
 P.Favorites = Favorites
 ns.ProfFavorites = Favorites
 
 function Favorites.Store()
-    local name, realm = UnitName("player"), GetRealmName()
-    if not name or name == _G.UNKNOWNOBJECT or not realm then return unavailable end
+    if not key then
+        local name, realm = UnitName("player"), GetRealmName()
+        if not name or name == _G.UNKNOWNOBJECT or not realm then return unavailable end
+        key = name .. "-" .. realm
+    end
     local account = ns.AccountSettings()
     if type(account.profFavorites) ~= "table" then account.profFavorites = {} end
-    local key = name .. "-" .. realm
     local mine = account.profFavorites[key]
     if type(mine) == "table" then return mine end
     mine = {}
@@ -24,7 +27,6 @@ function Favorites.Store()
         for spell, on in pairs(db.craftFavorites) do
             if type(spell) == "number" and on == true then mine[spell] = true end
         end
-        db.craftFavorites = nil
     end
     account.profFavorites[key] = mine
     return mine

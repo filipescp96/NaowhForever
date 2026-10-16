@@ -1,7 +1,7 @@
--- Recipe favorites are independent per character and migrate once from their former profile store.
+-- Recipe favorites are independent per character and every character starts from the former profile store.
 local account = {}
 local profile = { craftFavorites = { [100] = true } }
-local playerName = "Tester"
+local playerName
 
 local ns = {
     AccountSettings = function() return account end,
@@ -19,25 +19,35 @@ local env = setmetatable({
 env._G = env
 
 local Load = dofile("Tools/regression/load_files.lua")
-Load({ "NaowhForever_Professions/Favorites.lua" }, env)
-local favorites = assert(ns.Professions.Favorites)
+local function LoadAs(name)
+    playerName = name
+    Load({ "NaowhForever_Professions/Favorites.lua" }, env)
+    return assert(ns.Professions.Favorites)
+end
 
-assert(favorites.Store()[100] == true, "profile favorites were not migrated to the current character")
-assert(profile.craftFavorites == nil, "the shared legacy favorite store remained active after migration")
-favorites.Toggle({ spell = 101 })
-assert(favorites.Store()[101] == true, "the current character's favorite was not saved")
+local tester = LoadAs("Tester")
+assert(tester.Store()[100] == true, "profile favorites were not copied to the current character")
+assert(profile.craftFavorites and profile.craftFavorites[100] == true,
+    "copying the profile favorites removed them for the profile's other characters")
+tester.Toggle({ spell = 101 })
+assert(tester.Store()[101] == true, "the current character's favorite was not saved")
 
-playerName = "Alt"
-assert(next(favorites.Store()) == nil, "another character inherited recipe favorites")
-favorites.Toggle({ spell = 102 })
-assert(favorites.Store()[102] == true and favorites.Store()[101] == nil,
-    "the second character did not get independent recipe favorites")
+local alt = LoadAs("Alt")
+assert(alt.Store()[100] == true and alt.Store()[101] == nil,
+    "a second character did not start from the profile favorites alone")
+alt.Toggle({ spell = 100 })
+alt.Toggle({ spell = 102 })
+assert(alt.Store()[100] == false and alt.Store()[102] == true,
+    "the second character's favorites were not saved")
+assert(tester.Store()[100] and tester.Store()[101] and not tester.Store()[102],
+    "the second character's favorites changed the first character's")
+assert(profile.craftFavorites[100] == true, "a character's change reached the profile favorites")
 
-playerName = "Tester"
-assert(favorites.Store()[100] and favorites.Store()[101] and not favorites.Store()[102],
-    "switching back did not restore the first character's favorites")
-
-playerName = "Unknown"
-assert(next(favorites.Store()) == nil, "an unknown character identity exposed another character's favorites")
+local unknown = LoadAs("Unknown")
+assert(next(unknown.Store()) == nil, "an unknown character identity exposed another character's favorites")
+assert(account.profFavorites["Unknown-Realm"] == nil, "favorites were saved under an unknown character")
+playerName = "Late"
+assert(unknown.Store()[100] == true and account.profFavorites["Late-Realm"],
+    "favorites did not pick up the character once its name was known")
 
 print("Profession favorites character-state regression test: PASS")

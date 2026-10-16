@@ -129,6 +129,7 @@ local env = setmetatable({
         if name == "CraftRecipe" then craftHook = fn elseif name == "Apply" then applyHook = fn end
     end,
     InCombatLockdown = function() return false end,
+    UNKNOWNOBJECT = "Unknown",
     wipe = Wipe,
 }, { __index = _G })
 env._G = env
@@ -142,15 +143,6 @@ queue.Add(tradeSkill.GetRecipeInfo(100), 2)
 local list = queue.List()
 assert(list.crafts[100] and list.crafts[100].count == 2, "main craft was not queued")
 assert(list.prerequisites[200] and list.prerequisites[200].count == 2, "prerequisite craft was not queued")
-playerName = "Alt"
-assert(next(queue.List().crafts) == nil and next(queue.List().prerequisites) == nil,
-    "another character inherited the first character's crafting queue")
-queue.Add(tradeSkill.GetRecipeInfo(101), 1)
-assert(queue.List().crafts[101] and not queue.List().crafts[100],
-    "the second character did not get an independent crafting queue")
-playerName = "Tester"
-assert(queue.List().crafts[100] and not queue.List().crafts[101],
-    "switching back did not restore the first character's crafting queue")
 
 local _, missing, vendorCost = queue.Requirements(list.crafts[100])
 assert(missing == true, "missing materials were not detected")
@@ -309,5 +301,26 @@ settings.craftQueue = true
 applyHook()
 assert(shoppingAdds[100] == 1, "turning the queue back on through a profile did not restore its demand")
 queue.Clear()
+
+queue.Add(tradeSkill.GetRecipeInfo(100), 1)
+playerName = "Alt"
+Load({ "NaowhForever_Professions/CraftQueue.lua" }, env)
+local alt = ns.Professions.CraftQueue
+assert(next(alt.List().crafts) == nil and next(alt.List().prerequisites) == nil,
+    "another character inherited the first character's crafting queue")
+alt.Add(tradeSkill.GetRecipeInfo(101), 1)
+assert(alt.List().crafts[101] and not alt.List().crafts[100],
+    "the second character did not get an independent crafting queue")
+assert(queue.List().crafts[100] and not queue.List().crafts[101],
+    "the first character's crafting queue changed with the second character's")
+
+playerName = "Unknown"
+Load({ "NaowhForever_Professions/CraftQueue.lua" }, env)
+local unknown = ns.Professions.CraftQueue
+unknown.Add(tradeSkill.GetRecipeInfo(101), 1)
+assert(account.profCraftQueue["Unknown-Realm"] == nil, "the queue was saved under an unknown character")
+playerName = "Late"
+assert(next(unknown.List().crafts) == nil and account.profCraftQueue["Late-Realm"],
+    "the queue did not pick up the character once its name was known")
 
 print("Crafting queue regression test: PASS")
