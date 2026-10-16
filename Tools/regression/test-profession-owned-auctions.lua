@@ -9,7 +9,7 @@ local values, listeners, account = {}, {}, {}
 local applyHooks = {}
 local frames, registry, timers = {}, {}, {}
 local owned, queries, refreshes = {}, 0, 0
-local name = "Alpha"
+local player = "Alpha"
 
 local frameMethods = {}
 function frameMethods:RegisterEvent(event)
@@ -63,7 +63,7 @@ local ns = {
 local env = setmetatable({
     NaowhForever = ns,
     Enum = { AuctionStatus = { Active = 0 }, AuctionHouseSortOrder = { Price = 0 } },
-    UnitName = function() return name end,
+    UnitName = function() return player end,
     GetRealmName = function() return "Realm" end,
     CreateFrame = function()
         local frame = setmetatable({ scripts = {} }, { __index = frameMethods })
@@ -147,9 +147,9 @@ S.Set("filterProfit", true)
 Check("Not Selling combines with Profitable", P.Filters.Passes({ recipeID = 3, relativeDifficulty = 1 }, {})
     and not P.Filters.Passes({ recipeID = 2, relativeDifficulty = 1 }, {}))
 
-name = "Beta"
+player = "Beta"
 Check("auction counts do not leak to another character", P.Auctions.Count(100) == 0 and not P.Auctions.Ready())
-name = "Alpha"
+player = "Alpha"
 Check("returning to the character restores its cache", P.Auctions.Count(100) == 2 and P.Auctions.Ready())
 
 S.Set("ownedAuctions", false)
