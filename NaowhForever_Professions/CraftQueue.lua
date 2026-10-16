@@ -322,6 +322,8 @@ local function Ordered()
     return orderedEntries
 end
 
+local PrepareNext
+
 local function Move(recipeID, prerequisite, targetID)
     if active and active.started then return false end
     local mine = Mine()
@@ -336,7 +338,7 @@ local function Move(recipeID, prerequisite, targetID)
     if not (from and target) then return false end
     table.remove(order, from)
     table.insert(order, target, recipeID)
-    Redraw()
+    if running and active then PrepareNext() else Redraw() end
     return true
 end
 
@@ -361,8 +363,6 @@ local function Stop()
     if events then events:UnregisterAllEvents() end
     Redraw()
 end
-
-local PrepareNext
 
 local function Continue()
     if not running then return end

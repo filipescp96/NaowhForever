@@ -64,7 +64,7 @@ local View = {}
 P.CraftQueueView = View
 
 local window, scroll, content, empty, start, clear, addMissing, events
-local dragged, dragTarget
+local dragged
 local heads = {}
 local pools = { prerequisites = {}, crafts = {} }
 local sectionEntries = { prerequisites = {}, crafts = {} }
@@ -73,36 +73,40 @@ local function On()
     return S.Get("enabled") and S.Get("shoppingList") and S.Get("craftQueue")
 end
 
-local function OnRowEnter(self)
-    if dragged then
-        dragTarget = self.entry and self.entry.prerequisite == dragged.entry.prerequisite and self or nil
-        return
+local function Reorderable()
+    local active = Queue.Active()
+    return not (active and active.started)
+end
+
+local function RowUnderCursor()
+    local node = GetMouseFoci()[1]
+    while node do
+        if node.entry and node:GetParent() == content then return node end
+        node = node:GetParent()
     end
+end
+
+local function OnRowEnter(self)
     if not self.spell then return end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     if not pcall(GameTooltip.SetRecipeResultItem, GameTooltip, self.spell) then
         GameTooltip:SetSpellByID(self.spell)
     end
-    GameTooltip:AddLine(TIP_REORDER, T.muted.r, T.muted.g, T.muted.b)
+    if Reorderable() then GameTooltip:AddLine(TIP_REORDER, T.muted.r, T.muted.g, T.muted.b) end
     GameTooltip:Show()
 end
 
-local function OnRowLeave(self)
-    if dragged and dragTarget == self then dragTarget = nil end
-    GameTooltip_Hide()
-end
-
 local function OnDragStart(self)
-    local active = Queue.Active()
-    if not self.entry or (active and active.started) then return end
-    dragged, dragTarget = self, self
+    if not (self.entry and Reorderable()) then return end
+    dragged = self
     GameTooltip_Hide()
 end
 
 local function OnDragStop(self)
-    local target = dragTarget
-    dragged, dragTarget = nil, nil
-    if not (self.entry and target and target.entry) then return end
+    if dragged ~= self then return end
+    dragged = nil
+    local target = RowUnderCursor()
+    if not (target and target.entry.prerequisite == self.entry.prerequisite) then return end
     Queue.Move(self.entry.recipeID, self.entry.prerequisite, target.entry.recipeID)
 end
 
@@ -170,7 +174,7 @@ local function NewRow(pool, index)
     row.minus:SetPoint("RIGHT", row.plus, "LEFT", -MINUS_GAP, 0)
     ns.Tooltip(row.minus, TIP_FEWER, TIP_FEWER_HELP)
     row:SetScript("OnEnter", OnRowEnter)
-    row:SetScript("OnLeave", OnRowLeave)
+    row:SetScript("OnLeave", GameTooltip_Hide)
     row:SetScript("OnDragStart", OnDragStart)
     row:SetScript("OnDragStop", OnDragStop)
     pool[index] = row

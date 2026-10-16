@@ -13,14 +13,33 @@ local settings = { enabled = true, shoppingList = true, craftQueue = false }
 local settingChanged
 
 local function Wipe(t) for key in pairs(t) do t[key] = nil end return t end
-local function CreateFrame()
-    local frame = {}
-    function frame:SetScript(_, fn) self.onEvent = fn end
-    function frame:RegisterUnitEvent() end
-    function frame:RegisterEvent() end
-    function frame:UnregisterAllEvents() end
+local function Noop() end
+local frameMethods = {}
+for _, name in ipairs({ "RegisterUnitEvent", "RegisterEvent", "UnregisterAllEvents", "SetHeight", "SetWidth",
+    "SetSize", "SetPoint", "ClearAllPoints", "EnableMouse", "RegisterForDrag", "SetText", "SetTexture",
+    "SetJustifyH", "SetWordWrap", "SetScrollChild", "SetScale" }) do
+    frameMethods[name] = Noop
+end
+local frameMeta = { __index = frameMethods }
+local function CreateFrame(_, _, parent)
+    local frame = setmetatable({ scripts = {}, hooks = {}, parent = parent, shown = true }, frameMeta)
     frames[#frames + 1] = frame
     return frame
+end
+function frameMethods:SetScript(name, fn)
+    self.scripts[name] = fn
+    if name == "OnEvent" then self.onEvent = fn end
+end
+function frameMethods:HookScript(name, fn) self.hooks[name] = fn end
+function frameMethods:GetParent() return self.parent end
+function frameMethods:GetWidth() return 0 end
+function frameMethods:IsShown() return self.shown end
+function frameMethods:Hide() self.shown = false end
+function frameMethods:SetShown(shown) self.shown = shown and true or false end
+function frameMethods:CreateTexture() return CreateFrame(nil, nil, self) end
+function frameMethods:Show()
+    self.shown = true
+    if self.hooks.OnShow then self.hooks.OnShow(self) end
 end
 
 local timer = { After = function(_, fn) fn() end }
@@ -309,6 +328,97 @@ assert(next(shoppingAdds) == nil and shoppingList[100] == listed, "the profile h
 settings.craftQueue = true
 applyHook()
 assert(shoppingAdds[100] == 1, "turning the queue back on through a profile did not restore its demand")
+queue.Clear()
+
+queue.Add(tradeSkill.GetRecipeInfo(100), 1)
+queue.Add(tradeSkill.GetRecipeInfo(101), 1)
+assert(next(queue.List().prerequisites) == nil, "a craft with its materials in the bags queued a prerequisite")
+
+local Zero = { __index = function() return 0 end }
+local rgb = { r = 0, g = 0, b = 0 }
+local tooltipLines = {}
+local focus
+ns.THEME = { muted = rgb, fg = rgb, accent = rgb }
+ns.UI = { SlimScroll = function(parent) return CreateFrame(nil, nil, parent) end }
+ns.Shared = {
+    Style = setmetatable({}, Zero),
+    Parts = {
+        Window = function()
+            local window = CreateFrame()
+            window.backdrop = { Card = Noop, Paint = Noop }
+            window.subtitle = CreateFrame(nil, nil, window)
+            window.shown = false
+            return window
+        end,
+        TitleBar = function(window) return CreateFrame(nil, nil, window) end,
+        FooterBrand = Noop,
+        Resizable = Noop,
+    },
+}
+ns.Font = function(parent) return CreateFrame(nil, nil, parent) end
+ns.Button = function(parent) return CreateFrame(nil, nil, parent) end
+ns.Tooltip, ns.AccentBorder, ns.SetButtonText = Noop, Noop, Noop
+ns.UIScale = function() return 1 end
+ns.Professions.Text = {}
+ns.Professions.Style = setmetatable({}, Zero)
+ns.Professions.Widgets = { Crop = function(texture) return texture end, EnableButton = Noop }
+env.GetMouseFoci = function() return { focus } end
+env.GameTooltip_Hide = Noop
+env.GameTooltip = {
+    SetOwner = function() Wipe(tooltipLines) end,
+    SetRecipeResultItem = Noop,
+    AddLine = function(_, text) tooltipLines[#tooltipLines + 1] = text end,
+    Show = Noop,
+}
+Load({ "NaowhForever_Professions/UI/CraftQueue.lua" }, env)
+ns.OpenCraftQueue()
+
+local function Row(recipeID)
+    for _, frame in ipairs(frames) do
+        if frame.scripts.OnDragStart and frame.shown and frame.entry and frame.entry.recipeID == recipeID then
+            return frame
+        end
+    end
+end
+
+local function Drag(recipeID, targetID)
+    local row = assert(Row(recipeID), "a queued craft has no row")
+    focus = assert(Row(targetID), "a queued craft has no row").remove
+    row.scripts.OnDragStart(row)
+    row.scripts.OnDragStop(row)
+end
+
+local function CraftOrder()
+    local ids = {}
+    for _, entry in ipairs(queue.Ordered()) do ids[#ids + 1] = entry.recipeID end
+    return table.concat(ids, ",")
+end
+
+local function HintShown(recipeID)
+    local row = Row(recipeID)
+    row.scripts.OnEnter(row)
+    return tooltipLines[#tooltipLines] == "Drag to reorder within this section."
+end
+
+assert(CraftOrder() == "100,101" and HintShown(100), "the queue rows did not offer reordering")
+Drag(100, 101)
+assert(CraftOrder() == "101,100", "dropping a row on another row did not reorder the queue")
+
+queue.Click()
+assert(queue.Active().recipeID == 101 and ns.Professions.State.selectedID == 101,
+    "Start Queue did not prepare the first craft in the dragged order")
+Drag(100, 101)
+assert(CraftOrder() == "100,101" and queue.Active().recipeID == 100 and not queue.Active().started,
+    "reordering a prepared queue did not re-pick its next craft")
+assert(ns.Professions.State.selectedID == 100, "reordering a prepared queue left the old craft selected")
+local craftedBefore3 = #crafts
+queue.Click()
+assert(#crafts == craftedBefore3 + 1 and crafts[#crafts].id == 100,
+    "Craft Next crafted the pick from before the reorder")
+
+assert(queue.Active().started and not HintShown(101), "a started craft still offered dragging")
+Drag(101, 100)
+assert(CraftOrder() == "100,101", "a row was reordered while a craft was running")
 queue.Clear()
 
 print("Crafting queue regression test: PASS")
