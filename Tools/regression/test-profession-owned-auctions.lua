@@ -9,7 +9,7 @@ local values, listeners, account = {}, {}, {}
 local applyHooks = {}
 local frames, registry, timers = {}, {}, {}
 local owned, queries, refreshes = {}, 0, 0
-local guid = "Player-1-A"
+local name = "Alpha"
 
 local frameMethods = {}
 function frameMethods:RegisterEvent(event)
@@ -63,7 +63,8 @@ local ns = {
 local env = setmetatable({
     NaowhForever = ns,
     Enum = { AuctionStatus = { Active = 0 }, AuctionHouseSortOrder = { Price = 0 } },
-    UnitGUID = function() return guid end,
+    UnitName = function() return name end,
+    GetRealmName = function() return "Realm" end,
     CreateFrame = function()
         local frame = setmetatable({ scripts = {} }, { __index = frameMethods })
         frames[#frames + 1] = frame
@@ -96,14 +97,13 @@ Check("the feature is off by default", not P.Auctions.On())
 Check("off creates no frame and registers no events", #frames == 0 and Listening() == 0)
 
 S.Set("ownedAuctions", true)
-Check("turning it on creates one event frame", #frames == 1 and Listening() == 6)
+Check("turning it on creates one event frame", #frames == 1 and Listening() == 5)
 Check("the filter is not ready before an owner list", not P.Auctions.Ready())
 
 Fire("AUCTION_HOUSE_SHOW")
 Check("opening the auction house coalesces the query", queries == 0 and #timers == 1)
 Fire("AUCTION_HOUSE_AUCTION_CREATED")
-Fire("AUCTION_CANCELED")
-Check("post and cancel events do not add duplicate timers", #timers == 1)
+Check("a post does not add a duplicate timer", #timers == 1)
 RunTimers()
 Check("the queued owner-list query is sent once", queries == 1)
 
@@ -116,6 +116,13 @@ Fire("OWNED_AUCTIONS_UPDATED")
 Check("active quantities are combined and inactive auctions ignored",
     P.Auctions.Count(100) == 5 and P.Auctions.Count(200) == 0)
 Check("a complete list marks the cache ready and refreshes the window", P.Auctions.Ready() and refreshes == 1)
+Check("counts are saved under the character's name and realm", account.profOwnedAuctions["Alpha-Realm"].counts[100] == 5)
+
+Fire("AUCTION_CANCELED")
+Check("a cancel sends no query of its own", queries == 1 and #timers == 0)
+owned[2] = nil
+Fire("OWNED_AUCTIONS_UPDATED")
+Check("the owner list the auction house reloads after a cancel is read", P.Auctions.Count(100) == 2)
 
 P.Recipes = {
     OutputItem = function(recipeID) return recipeID == 1 and 100 or 300 end,
@@ -140,10 +147,10 @@ S.Set("filterProfit", true)
 Check("Not Selling combines with Profitable", P.Filters.Passes({ recipeID = 3, relativeDifficulty = 1 }, {})
     and not P.Filters.Passes({ recipeID = 2, relativeDifficulty = 1 }, {}))
 
-guid = "Player-1-B"
+name = "Beta"
 Check("auction counts do not leak to another character", P.Auctions.Count(100) == 0 and not P.Auctions.Ready())
-guid = "Player-1-A"
-Check("returning to the character restores its cache", P.Auctions.Count(100) == 5 and P.Auctions.Ready())
+name = "Alpha"
+Check("returning to the character restores its cache", P.Auctions.Count(100) == 2 and P.Auctions.Ready())
 
 S.Set("ownedAuctions", false)
 Check("turning it off unregisters every event", Listening() == 0)
@@ -151,6 +158,6 @@ Check("off exposes no cached auction counts", P.Auctions.Count(100) == 0 and not
 
 values.ownedAuctions = true
 for _, fn in ipairs(applyHooks) do fn() end
-Check("applying a profile turns the feature back on", P.Auctions.On() and Listening() == 6)
+Check("applying a profile turns the feature back on", P.Auctions.On() and Listening() == 5)
 
 print(("test-profession-owned-auctions: %d checks passed"):format(checks))

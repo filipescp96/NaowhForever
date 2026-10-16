@@ -5,18 +5,17 @@ local GetNumOwnedAuctions = C_AuctionHouse.GetNumOwnedAuctions
 local GetOwnedAuctionInfo = C_AuctionHouse.GetOwnedAuctionInfo
 local IsThrottledMessageSystemReady = C_AuctionHouse.IsThrottledMessageSystemReady
 local QueryOwnedAuctions = C_AuctionHouse.QueryOwnedAuctions
-local UnitGUID = UnitGUID
 
 local P = ns.Professions
 local S = P.Settings
 local C = P.C
 
-local ACTIVE_FALLBACK = 0
-local ACTIVE = Enum.AuctionStatus and Enum.AuctionStatus.Active or ACTIVE_FALLBACK
+local ACTIVE = Enum.AuctionStatus.Active
 local OWNED_SORT = { { sortOrder = Enum.AuctionHouseSortOrder.Price, reverseSort = false } }
 local EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "OWNED_AUCTIONS_UPDATED",
-    "AUCTION_HOUSE_AUCTION_CREATED", "AUCTION_CANCELED", "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" }
+    "AUCTION_HOUSE_AUCTION_CREATED", "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" }
 local SETTING_KEYS = { enabled = true, ownedAuctions = true }
+local TEXT_UNKNOWN = "?"
 
 local events
 local open, wanted = false, false
@@ -29,8 +28,7 @@ local function On()
 end
 
 local function Saved(create)
-    local guid = UnitGUID("player")
-    if not guid then return end
+    local key = (UnitName("player") or TEXT_UNKNOWN) .. "-" .. (GetRealmName() or TEXT_UNKNOWN)
     local account = ns.AccountSettings()
     local characters = account.profOwnedAuctions
     if type(characters) ~= "table" then
@@ -38,11 +36,11 @@ local function Saved(create)
         characters = {}
         account.profOwnedAuctions = characters
     end
-    local saved = characters[guid]
+    local saved = characters[key]
     if type(saved) ~= "table" then
         if not create then return end
         saved = { counts = {} }
-        characters[guid] = saved
+        characters[key] = saved
     elseif type(saved.counts) ~= "table" then
         saved.counts = {}
     end
@@ -69,8 +67,7 @@ end
 
 local function Request()
     if not (On() and open and wanted) then return end
-    local ready = IsThrottledMessageSystemReady
-    if ready and not ready() then return end
+    if not IsThrottledMessageSystemReady() then return end
     wanted = false
     QueryOwnedAuctions(OWNED_SORT)
 end
@@ -120,7 +117,7 @@ local function Apply()
         events = CreateFrame("Frame")
         events:SetScript("OnEvent", OnEvent)
     end
-    for _, event in ipairs(EVENTS) do pcall(events.RegisterEvent, events, event) end
+    for _, event in ipairs(EVENTS) do events:RegisterEvent(event) end
     open = P.AH and P.AH.Open() and true or false
     if open then QueueRequest() end
 end
