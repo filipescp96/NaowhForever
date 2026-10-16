@@ -127,6 +127,7 @@ function methods.SetShown(self, on) if on then self:Show() else self:Hide() end 
 function methods.IsShown(self) return self.shown end
 function methods.IsVisible(self) return self.shown end
 function methods.SetText(self, v) self.text = v end
+function methods.SetTextColor(self, r, g, b) self.textR, self.textG, self.textB = r, g, b end
 function methods.GetText(self) return self.text end
 function methods.GetStringWidth() return 20 end
 function methods.GetStringHeight() return 12 end
@@ -215,7 +216,7 @@ local BROKEN = 49999           -- an item that never loads once `broken` is set 
 local broken = false
 local UNRELATED = 777777       -- an item the auction house loads for its own lists
 
-local names, loaded = {}, {}
+local names, loaded, usableItems = {}, {}, {}
 local function ItemNameOf(id)
     local n = names[id]
     if not n then n = "Item " .. id; names[id] = n end
@@ -406,6 +407,7 @@ env = {
         GetAreaInfo = function() return "Area" end },
     C_QuestLog = { GetTitleForQuestID = function() return nil end },
     C_Item = {
+        IsUsableItem = function(id) return usableItems[id] == true end,
         GetItemNameByID = function(id) if loaded[id] then return ItemNameOf(id) end end,
         RequestLoadItemDataByID = RequestLoad,
         GetItemCount = function(id, bank)
@@ -503,6 +505,8 @@ account.profShopping = { ["Tester-Realm"] = {
     [recipes[1].spell] = { name = "Recipe 1", icon = 1, count = 2,
         need = { [BROKEN] = 1, [REAGENTS[3]] = 2, [REAGENTS[4]] = 3, [REAGENTS[9]] = 1 } },
 } }
+local listedPatterns = ns.Professions.Patterns.List()
+usableItems[listedPatterns[1].item] = true
 
 -- With Recipe Availability Marks on, a Shopping List change before the recipe window is ever
 -- built, as from /nf shopping after a reload, has no list to draw.
@@ -525,6 +529,13 @@ check("manual favourite scanning sends nothing before Scan", calls.SendSearchQue
 local patternWindow = ns.FavoritePatternsFrames()
 check("manual favourite scanning builds its Scan button", patternWindow and patternWindow.scan)
 check("manual favourite scanning pages every pattern", patternWindow.pageCount == 2)
+local ready = ns.Professions.Style.READY_RGB
+local normal = ns.THEME.fg
+for _, row in ipairs(patternWindow.rows) do
+    local expected = usableItems[row.item] and ready or normal
+    check("favorite pattern names show whether they are learnable now",
+        row.name.textR == expected.r and row.name.textG == expected.g and row.name.textB == expected.b)
+end
 patternWindow.hooks.OnMouseWheel[1](patternWindow, -1)
 check("the mouse wheel reaches the next pattern page", patternWindow.pager.label.text == "2 / 2")
 patternWindow.hooks.OnMouseWheel[1](patternWindow, 1)

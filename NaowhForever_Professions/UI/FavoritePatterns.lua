@@ -27,7 +27,8 @@ local PAGE_BUTTON_W, PAGE_BUTTON_H = 28, 20
 local PAGE_BUTTON_GAP, PAGE_EDGE = 4, 8
 local SCAN_BUTTON_W, PAGER_W = 92, 118
 local PRICE_SORT = { { sortOrder = Enum.AuctionHouseSortOrder.Price, reverseSort = false } }
-local EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "PLAYER_MONEY", "ITEM_DATA_LOAD_RESULT",
+local EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "PLAYER_MONEY", "PLAYER_LEVEL_UP",
+    "SKILL_LINES_CHANGED", "ITEM_DATA_LOAD_RESULT",
     "ITEM_SEARCH_RESULTS_UPDATED", "COMMODITY_SEARCH_RESULTS_UPDATED", "AUCTION_HOUSE_PURCHASE_COMPLETED",
     "AUCTION_HOUSE_SHOW_ERROR" }
 local ALONE = { none = true, bought = true, unconfirmed = true }
@@ -313,6 +314,8 @@ local function FillRow(i, e, scanned)
     row.item, row.spell, row.searchName = e.item, nil, name
     row.icon:SetTexture(C_Item.GetItemIconByID(e.item))
     row.name:SetText(name or C_Spell.GetSpellName(e.r.spell) or TEXT_UNKNOWN)
+    local color = Patterns.Learnable(e.item) and Style.READY_RGB or T.fg
+    row.name:SetTextColor(color.r, color.g, color.b)
     PriceNote(row, e, scanned)
     row.button:SetEnabled(name ~= nil)
     row.button:SetAlpha(name and 1 or Style.DIMMED)
