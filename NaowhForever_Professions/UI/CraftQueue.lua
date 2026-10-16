@@ -44,6 +44,7 @@ local TEXT_START = ns.L("Start Queue")
 local TEXT_RUNNING = ns.L("Crafting...")
 local TEXT_NEXT = ns.L("Craft Next")
 local TEXT_OPEN = ns.L("Open First")
+local TEXT_BAGS_FULL = ns.L("Bags Full")
 local TEXT_CLEAR = ns.L("Clear")
 local TEXT_ADD_MISSING = ns.L("Add Missing to SL")
 local TEXT_ADD_MISSING_SHORT = ns.L("Missing to SL")
@@ -214,13 +215,15 @@ function View.Render()
     local active = Queue.Active()
     local running = Queue.Running()
     local crafting = running and active and active.started
+    local bagsFull = running and active and not active.started and Queue.Room(active) == 0
     local startText = TEXT_START
     if running then
-        startText = crafting and TEXT_RUNNING or (Queue.Ready() and TEXT_NEXT or TEXT_OPEN)
+        startText = crafting and TEXT_RUNNING or (bagsFull and TEXT_BAGS_FULL
+            or (Queue.Ready() and TEXT_NEXT or TEXT_OPEN))
     end
     ns.SetButtonText(start, startText)
     start._tipTitle = startText
-    Widgets.EnableButton(start, count > 0 and (not running or (active and not active.started)))
+    Widgets.EnableButton(start, count > 0 and not bagsFull and (not running or (active and not active.started)))
     Widgets.EnableButton(clear, count > 0 and not crafting)
     Widgets.EnableButton(addMissing, count > 0 and not crafting)
 end

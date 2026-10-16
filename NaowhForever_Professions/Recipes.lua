@@ -9,6 +9,7 @@ local Links = P.Links
 local NO_ITEM = 0
 local DEFAULT_BAGS = 4
 local TEXT_CRAFT_FAILED = ns.L("Could not craft: ")
+local TEXT_BAGS_FULL = _G.ERR_INV_FULL or ns.L("Bags are full.")
 local TEXT_ITEM = ns.L("Item ")
 
 local EMPTY = {}
@@ -173,11 +174,27 @@ local function Link(itemID, fallback)
     return link or ("[" .. (C_Item.GetItemNameByID(itemID) or fallback or (TEXT_ITEM .. itemID)) .. "]")
 end
 
+local function CraftRoom(recipeID, count)
+    if not ns.CraftBagRoom then return end
+    local output, made = OutputItem(recipeID)
+    return ns.CraftBagRoom(output, made, Reagents(recipeID), count)
+end
+
 local function Craft(count)
     local info = SelectedInfo()
-    if not info or count < 1 then return end
+    count = math.floor(tonumber(count) or 0)
+    if not info or count < 1 then return false end
+    local room = CraftRoom(info.recipeID, count)
+    if room ~= nil then
+        if room < 1 then
+            ns.Print(TEXT_BAGS_FULL)
+            return false
+        end
+        count = math.min(count, room)
+    end
     local ok, err = pcall(C_TradeSkillUI.CraftRecipe, info.recipeID, count)
     if not ok then ns.Print(TEXT_CRAFT_FAILED .. tostring(err)) end
+    return ok
 end
 
 local function WindowLinked()
@@ -200,6 +217,7 @@ P.Recipes = {
     Owned = Owned,
     SelectedInfo = SelectedInfo,
     Link = Link,
+    CraftRoom = CraftRoom,
     Craft = Craft,
 }
 

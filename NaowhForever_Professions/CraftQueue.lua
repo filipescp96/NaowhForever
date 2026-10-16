@@ -15,6 +15,7 @@ local QUEUE_DELAY = C.QUEUE_DELAY
 local TEXT_UNKNOWN = "?"
 local TEXT_NOTHING = ns.L("Nothing in the crafting queue can be crafted with the materials in your bags.")
 local TEXT_OPEN_REQUIRED = ns.L("Open the required profession manually, then click Craft Next again.")
+local TEXT_BAGS_FULL = _G.ERR_INV_FULL or ns.L("Bags are full.")
 local EMPTY = {}
 local BUCKET_ORDER = { true, false }
 local APPLY_KEYS = { enabled = true, shoppingList = true, craftQueue = true }
@@ -23,7 +24,7 @@ local orderedEntries = {}
 local Queue = {}
 P.CraftQueue = Queue
 
-local running, active
+local running, active, bagErrorRecipe
 local runID = 0
 local ownerKey
 local events
@@ -250,6 +251,11 @@ local function Missing(entry)
     return false
 end
 
+local function Room(entry)
+    if not entry then return end
+    return R.CraftRoom(entry.recipeID, tonumber(entry.requested or entry.count) or 1)
+end
+
 local function ProfessionOpen(entry)
     local id = OpenProfessionID()
     return id ~= nil and (not entry.prof or id == entry.prof)
@@ -303,11 +309,13 @@ local function FinishActive()
         if entry.count <= 0 then bucket[active.recipeID] = nil end
     end
     active.done = active.done + 1
+    bagErrorRecipe = nil
     SyncShopping()
 end
 
 local function Stop()
     running, active = nil, nil
+    bagErrorRecipe = nil
     runID = runID + 1
     if events then events:UnregisterAllEvents() end
     Redraw()
@@ -324,9 +332,30 @@ local function Continue()
     end)
 end
 
-local function OnCraftEvent(_, event, unit, _, spellID)
+local function ResetBagFailure(recipeID, expectedRun)
+    if not (running and active and runID == expectedRun and active.recipeID == recipeID) then return end
+    local entry = Bucket(active.prerequisite)[active.recipeID]
+    if not entry then return Stop() end
+    active.requested = tonumber(entry.count) or 1
+    active.done, active.started = 0, false
+    Redraw()
+end
+
+local function OnCraftEvent(_, event, arg1, arg2, spellID)
     if not (running and active) then return end
-    if event == "BAG_UPDATE_DELAYED" then return SyncShopping() end
+    if event == "BAG_UPDATE_DELAYED" then
+        bagErrorRecipe = nil
+        return SyncShopping()
+    end
+    if event == "UI_ERROR_MESSAGE" then
+        if arg2 == ERR_INV_FULL or arg2 == ERR_BAG_FULL then
+            local recipeID, expectedRun = active.recipeID, runID
+            bagErrorRecipe = recipeID
+            ResetBagFailure(recipeID, expectedRun)
+            C_Timer.After(0, function() ResetBagFailure(recipeID, expectedRun) end)
+        end
+        return
+    end
     if event == "TRADE_SKILL_CLOSE" then
         if active.started then
             local entry = Bucket(active.prerequisite)[active.recipeID]
@@ -336,7 +365,7 @@ local function OnCraftEvent(_, event, unit, _, spellID)
         return Redraw()
     end
     if not active.started then return end
-    if unit ~= "player" or spellID ~= active.recipeID then return end
+    if arg1 ~= "player" or spellID ~= active.recipeID then return end
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         FinishActive()
         if active.done >= active.requested then Continue() end
@@ -384,6 +413,7 @@ function PrepareNext()
         requested = count, done = 0, started = false }
     SelectForCrafting(chosen)
     Redraw()
+    if Room(active) == 0 then ns.Print(TEXT_BAGS_FULL) end
 end
 
 local function OnCraftRequested(recipeID, count)
@@ -391,6 +421,7 @@ local function OnCraftRequested(recipeID, count)
     local entry = Bucket(active.prerequisite)[active.recipeID]
     if not entry then return Stop() end
     if not CraftContextReady(entry) then return end
+    if bagErrorRecipe == recipeID then return ResetBagFailure(recipeID, runID) end
     active.requested = math.min(tonumber(count) or 1, tonumber(entry.count) or 1)
     active.done, active.started = 0, true
     Redraw()
@@ -419,6 +450,7 @@ local function Start()
     events:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
     events:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
     events:RegisterEvent("BAG_UPDATE_DELAYED")
+    events:RegisterEvent("UI_ERROR_MESSAGE")
     events:RegisterEvent("TRADE_SKILL_CLOSE")
     Redraw()
     PrepareNext()
@@ -439,6 +471,11 @@ local function Click()
     local entry = Bucket(active.prerequisite)[active.recipeID]
     if not entry then return Stop() end
     if not PrepareCraftContext(entry) then return end
+    if Room(active) == 0 then
+        ns.Print(TEXT_BAGS_FULL)
+        return Redraw()
+    end
+    bagErrorRecipe = nil
     R.Craft(active.requested)
 end
 
@@ -564,6 +601,7 @@ Queue.RemoveCraft = RemoveCraft
 Queue.Clear = Clear
 Queue.Requirements = Requirements
 Queue.Missing = Missing
+Queue.Room = Room
 Queue.Ordered = Ordered
 Queue.Click = Click
 Queue.Running = function() return running and true or false end

@@ -5,10 +5,12 @@ local crafts = {}
 local account = {}
 local shoppingList, shoppingHave = {}, {}
 local shoppingAdds = {}
+local messages = {}
 local selected, quantity
 local craftHook, applyHook
 local openProfession = 1
 local protectedOpenCalls = 0
+local bagRoom
 local settings = { enabled = true, shoppingList = true, craftQueue = false }
 local settingChanged
 
@@ -57,7 +59,8 @@ local reagents = {
 local ns
 ns = {
     L = function(text) return text end,
-    Print = function() end,
+    Print = function(message) messages[#messages + 1] = message end,
+    CraftBagRoom = function() return bagRoom end,
     AccountSettings = function() return account end,
     Professions = {
         Settings = {
@@ -81,6 +84,7 @@ ns = {
                 local id = ns.Professions.State.selectedID
                 return id and tradeSkill.GetRecipeInfo(id)
             end,
+            CraftRoom = function() return bagRoom end,
             Craft = function(count)
                 local id = ns.Professions.State.selectedID
                 if id then tradeSkill.CraftRecipe(id, count) end
@@ -128,6 +132,8 @@ local env = setmetatable({
         if name == "CraftRecipe" then craftHook = fn elseif name == "Apply" then applyHook = fn end
     end,
     InCombatLockdown = function() return false end,
+    ERR_INV_FULL = "Inventory is full.",
+    ERR_BAG_FULL = "That bag is full.",
     wipe = Wipe,
 }, { __index = _G })
 env._G = env
@@ -283,6 +289,28 @@ assert(ns.Professions.State.selectedID == 300 and #crafts == craftedBefore2 + 1,
     "Craft Next did not craft once the right profession was open")
 queue.Clear()
 openProfession = 1
+
+inventory[2000] = 1
+bagRoom = 0
+queue.Add(tradeSkill.GetRecipeInfo(101), 1)
+local fullBagCrafts = #crafts
+queue.Click()
+assert(queue.Active().recipeID == 101 and queue.Room(queue.Active()) == 0,
+    "the prepared craft did not expose its full-bag state")
+assert(messages[#messages] == env.ERR_INV_FULL, "Start Queue did not warn that the bags were full")
+queue.Click()
+assert(#crafts == fullBagCrafts and not queue.Active().started,
+    "Craft Next called the protected craft or became stuck with full bags")
+bagRoom = 1
+event(frames[1], "BAG_UPDATE_DELAYED")
+queue.Click()
+assert(#crafts == fullBagCrafts + 1 and queue.Active().started,
+    "Craft Next did not recover after bag space became available")
+event(frames[1], "UI_ERROR_MESSAGE", 0, env.ERR_INV_FULL)
+assert(queue.Running() and not queue.Active().started,
+    "an inventory-full game error left the queue stuck in Crafting")
+queue.Clear()
+bagRoom = nil
 
 queue.Add(tradeSkill.GetRecipeInfo(100), 1)
 Wipe(shoppingAdds)

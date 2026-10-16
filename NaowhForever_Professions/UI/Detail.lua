@@ -104,7 +104,7 @@ local function AddRequirements(recipeID)
     return unmet
 end
 
-local function Describe(info, output, made)
+local function Describe(info)
     local d = win.detail
     local ok, desc = pcall(C_TradeSkillUI.GetRecipeDescription, info.recipeID, EMPTY)
     wipe(lines)
@@ -117,13 +117,13 @@ local function Describe(info, output, made)
     drawnRecipe, drawnUnmet = info.recipeID, unmet
     drawnCooldown = cooldown and math.floor(cooldown) or 0
     local can = R.Craftable(info)
-    local room = not W.linked and ns.CraftBagRoom and ns.CraftBagRoom(output, made, R.Reagents(info.recipeID), can)
+    local room = not W.linked and R.CraftRoom(info.recipeID, can)
     if room and can > room then
         lines[#lines + 1] = Style.ALERT_CODE .. TEXT_BAG_ROOM:format(room, can)
     end
     win.createAll.count = room and math.min(can, room) or can
     d.desc:SetText(table.concat(lines, "\n"))
-    return unmet
+    return unmet, room
 end
 
 local function ShowCraftOrOrder(info, output, made)
@@ -194,7 +194,7 @@ function Detail.Render()
     local output, made = R.OutputItem(info.recipeID)
     FillHeader(info, output)
     ShowCraftOrOrder(info, output, made)
-    local unmet = Describe(info, output, made)
+    local unmet, room = Describe(info)
     d.reagentsLabel:ClearAllPoints()
     d.reagentsLabel:SetPoint("TOPLEFT", d.desc, "BOTTOMLEFT", 0, -REAGENTS_GAP)
     if W.linked then return P.OrderPanel.RenderDetail(info) end
@@ -203,8 +203,8 @@ function Detail.Render()
     if ns.ShoppingListRender then ns.ShoppingListRender(info, last) end
     FillTrack(info)
     ns.SetButtonText(win.createAll, TEXT_CREATE_ALL_COUNT:format(win.createAll.count))
-    EnableButton(win.create, not unmet)
-    EnableButton(win.createAll, not unmet)
+    EnableButton(win.create, not unmet and room ~= 0)
+    EnableButton(win.createAll, not unmet and room ~= 0)
 end
 
 function Detail.Listen(on)

@@ -59,6 +59,8 @@ L["Crafts you add appear here. Their missing auction-house materials go to the S
 L["Start Queue"] = true
 L["Crafting..."] = true
 L["Craft Next"] = true
+L["Bags Full"] = true
+L["Bags are full."] = true
 L["Open First"] = true
 L["Add Missing to SL"] = true
 L["Missing to SL"] = true
