@@ -12,9 +12,12 @@ local TEXT_TOO_DEAR = ns.L("Buy at Vendor: that costs %s, more than you have.")
 local TEXT_BOUGHT = ns.L("Bought %s for %s.")
 local TEXT_PART = "%dx %s"
 local MERCHANT_EVENTS = { "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED" }
-local MERCHANT_KEYS = { enabled = true, vendorMaterials = true, craftProfit = true, buyVendor = true }
+local MERCHANT_KEYS = { enabled = true, shoppingList = true, vendorMaterials = true, craftProfit = true,
+    buyVendor = true }
 
 local merchant
+local EMPTY = {}
+local shoppingList, shoppingPool, buyList, buyPool, buyParts = {}, {}, {}, {}, {}
 
 local function LearnedVendorItems()
     local account = ns.AccountSettings()
@@ -43,10 +46,11 @@ local function MerchantInfo(i)
 end
 
 local function ScanMerchant()
-    local learn, price = S.Get("vendorMaterials"), S.Get("craftProfit")
+    local shopping = S.Get("shoppingList")
+    local learn, price = S.Get("vendorMaterials") or shopping, S.Get("craftProfit") or shopping
     if not (learn or price) then return end
     local learned, prices = LearnedVendorItems(), VendorPrices()
-    for i = 1, GetMerchantNumItems() do
+    for i = 1, tonumber(GetMerchantNumItems()) or 0 do
         local itemID = GetMerchantItemID(i)
         local cost, stack, available, extended = MerchantInfo(i)
         if itemID and (cost or 0) > 0 and available == UNLIMITED and not extended
@@ -60,6 +64,10 @@ end
 local function OnMerchantEvent(_, event)
     if event ~= "MERCHANT_CLOSED" then ScanMerchant() end
     if event ~= "MERCHANT_UPDATE" and S.Get("buyVendor") and ns.ProfWindowRefresh then ns.ProfWindowRefresh() end
+    if S.Get("shoppingList") and P.Shopping and P.Shopping.Redraw then P.Shopping.Redraw() end
+    if P.ShoppingVendorView and P.ShoppingVendorView.OnMerchantEvent then
+        P.ShoppingVendorView.OnMerchantEvent(event)
+    end
 end
 
 local function CraftableWithVendor(info)
@@ -79,7 +87,7 @@ local function Open()
 end
 
 local function Find(itemID)
-    for i = 1, GetMerchantNumItems() do
+    for i = 1, tonumber(GetMerchantNumItems()) or 0 do
         if GetMerchantItemID(i) == itemID then
             local price, stack, available, extended = MerchantInfo(i)
             if (price or 0) > 0 and not extended then
@@ -88,6 +96,64 @@ local function Find(itemID)
             return
         end
     end
+end
+
+local function ShoppingNeeds(onlyItem)
+    local materials = P.Shopping and P.Shopping.VendorMaterials and P.Shopping.VendorMaterials() or EMPTY
+    local n, total = 0, 0
+    for _, material in ipairs(materials) do
+        if not onlyItem or material.item == onlyItem then
+            local index, price, stack, available = Find(material.item)
+            if index then
+                local buys = math.ceil(material.qty / stack)
+                if available >= 0 then buys = math.min(buys, available) end
+                if buys > 0 then
+                    n = n + 1
+                    local entry = shoppingPool[n] or {}
+                    shoppingPool[n] = entry
+                    entry.index, entry.itemID = index, material.item
+                    entry.want, entry.count = material.qty, buys * stack
+                    entry.cost, entry.short = buys * price, available >= 0 and buys * stack < material.qty
+                    shoppingList[n] = entry
+                    total = total + entry.cost
+                end
+            end
+        end
+    end
+    for i = n + 1, #shoppingList do shoppingList[i] = nil end
+    return shoppingList, total
+end
+
+local function BuyEntries(list, total, trackShopping)
+    if #list == 0 then return false end
+    if GetMoney() < total then
+        ns.Print(TEXT_TOO_DEAR:format(Text.Money(total)))
+        return false
+    end
+    for index, entry in ipairs(list) do
+        local purchase = buyPool[index] or {}
+        buyPool[index] = purchase
+        purchase.index, purchase.itemID, purchase.count = entry.index, entry.itemID, entry.count
+        buyList[index] = purchase
+    end
+    for index = #list + 1, #buyList do buyList[index] = nil end
+    wipe(buyParts)
+    for _, entry in ipairs(buyList) do
+        local left = entry.count
+        local most = math.max(1, GetMerchantItemMaxStack(entry.index) or left)
+        while left > 0 do
+            local count = math.min(left, most)
+            BuyMerchantItem(entry.index, count)
+            left = left - count
+        end
+        if trackShopping and P.Shopping and P.Shopping.Bought then
+            P.Shopping.Bought(entry.itemID, entry.count)
+        end
+        buyParts[#buyParts + 1] = TEXT_PART:format(entry.count, R.Link(entry.itemID))
+    end
+    ns.Print(TEXT_BOUGHT:format(table.concat(buyParts, ", "), Text.Money(total)))
+    if trackShopping and P.Shopping and P.Shopping.Redraw then P.Shopping.Redraw() end
+    return true
 end
 
 local function List(recipeID, crafts, topUp)
@@ -115,20 +181,17 @@ end
 
 local function Buy(recipeID, crafts, topUp)
     local list, total = List(recipeID, crafts, topUp)
-    if #list == 0 then return end
-    if GetMoney() < total then return ns.Print(TEXT_TOO_DEAR:format(Text.Money(total))) end
-    local parts = {}
-    for _, e in ipairs(list) do
-        local left = e.count
-        local most = math.max(1, GetMerchantItemMaxStack(e.index) or left)
-        while left > 0 do
-            local n = math.min(left, most)
-            BuyMerchantItem(e.index, n)
-            left = left - n
-        end
-        parts[#parts + 1] = TEXT_PART:format(e.count, R.Link(e.itemID))
-    end
-    ns.Print(TEXT_BOUGHT:format(table.concat(parts, ", "), Text.Money(total)))
+    return BuyEntries(list, total)
+end
+
+local function BuyShoppingItem(itemID)
+    local list, total = ShoppingNeeds(itemID)
+    return BuyEntries(list, total, true)
+end
+
+local function BuyShoppingAll()
+    local list, total = ShoppingNeeds()
+    return BuyEntries(list, total, true)
 end
 
 P.Vendors = {
@@ -139,15 +202,20 @@ P.Vendors = {
     List = List,
     Sells = Sells,
     Buy = Buy,
+    ShoppingNeeds = ShoppingNeeds,
+    BuyShoppingItem = BuyShoppingItem,
+    BuyShoppingAll = BuyShoppingAll,
 }
 
 ns.ProfWindowAPI.IsVendorItem = IsVendorItem
 
 local function MerchantWanted()
-    return P.On() and (S.Get("vendorMaterials") or S.Get("craftProfit") or S.Get("buyVendor"))
+    return P.On() and (S.Get("shoppingList") or S.Get("vendorMaterials") or S.Get("craftProfit")
+        or S.Get("buyVendor"))
 end
 
 local function Apply()
+    if not (P.On() and S.Get("shoppingList")) and P.ShoppingVendorView then P.ShoppingVendorView.Hide() end
     if not MerchantWanted() then
         if merchant then merchant:UnregisterAllEvents() end
         return
@@ -157,6 +225,7 @@ local function Apply()
         merchant:SetScript("OnEvent", OnMerchantEvent)
     end
     for _, event in ipairs(MERCHANT_EVENTS) do merchant:RegisterEvent(event) end
+    if Open() then OnMerchantEvent(merchant, "MERCHANT_SHOW") end
 end
 
 local function OnSettingChanged(key)

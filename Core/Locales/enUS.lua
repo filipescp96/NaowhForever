@@ -4261,6 +4261,14 @@ L["Shift-L now opens the Quest List. Change it under Discovery > Quest List or K
 L["Shine"] = true
 L["Shirt"] = true
 L["Shopping List"] = true
+L["Buy from Vendor"] = true
+L["Shopping List materials sold here."] = true
+L["Total: %s"] = true
+L["Only %d of %d available; %s"] = true
+L["Buys %d; %s"] = true
+L["Buys this Shopping List shortage from the current vendor."] = true
+L["Buys every Shopping List shortage sold by this vendor."] = true
+L["price unknown"] = true
 L["Shopping list: %s for %d %s (%s)."] = true
 L["Short"] = true
 L["Short Buffs"] = true
