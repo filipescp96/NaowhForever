@@ -25,7 +25,6 @@ P.CraftQueue = Queue
 
 local running, active
 local runID = 0
-local ownerKey
 local events
 local hooked = false
 local applied
@@ -42,9 +41,7 @@ end
 local function Mine()
     local account = ns.AccountSettings()
     if type(account.profCraftQueue) ~= "table" then account.profCraftQueue = {} end
-    if not ownerKey then
-        ownerKey = (UnitName("player") or TEXT_UNKNOWN) .. "-" .. (GetRealmName() or TEXT_UNKNOWN)
-    end
+    local ownerKey = (UnitName("player") or TEXT_UNKNOWN) .. "-" .. (GetRealmName() or TEXT_UNKNOWN)
     local mine = account.profCraftQueue[ownerKey]
     if type(mine) ~= "table" then
         mine = { prerequisites = {}, crafts = {} }

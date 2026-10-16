@@ -11,6 +11,7 @@ local openProfession = 1
 local protectedOpenCalls = 0
 local settings = { enabled = true, shoppingList = true, craftQueue = false }
 local settingChanged
+local playerName = "Tester"
 
 local function Wipe(t) for key in pairs(t) do t[key] = nil end return t end
 local function CreateFrame()
@@ -123,7 +124,7 @@ local env = setmetatable({
     ProfessionsFrame = professionsFrame,
     CreateFrame = CreateFrame,
     GetRealmName = function() return "Realm" end,
-    UnitName = function() return "Tester" end,
+    UnitName = function() return playerName end,
     hooksecurefunc = function(_, name, fn)
         if name == "CraftRecipe" then craftHook = fn elseif name == "Apply" then applyHook = fn end
     end,
@@ -141,6 +142,15 @@ queue.Add(tradeSkill.GetRecipeInfo(100), 2)
 local list = queue.List()
 assert(list.crafts[100] and list.crafts[100].count == 2, "main craft was not queued")
 assert(list.prerequisites[200] and list.prerequisites[200].count == 2, "prerequisite craft was not queued")
+playerName = "Alt"
+assert(next(queue.List().crafts) == nil and next(queue.List().prerequisites) == nil,
+    "another character inherited the first character's crafting queue")
+queue.Add(tradeSkill.GetRecipeInfo(101), 1)
+assert(queue.List().crafts[101] and not queue.List().crafts[100],
+    "the second character did not get an independent crafting queue")
+playerName = "Tester"
+assert(queue.List().crafts[100] and not queue.List().crafts[101],
+    "switching back did not restore the first character's crafting queue")
 
 local _, missing, vendorCost = queue.Requirements(list.crafts[100])
 assert(missing == true, "missing materials were not detected")
