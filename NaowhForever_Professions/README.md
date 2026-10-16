@@ -193,6 +193,11 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   Shopping List. Start Queue only selects the next ready entry, and each Craft Next hardware click starts
   one batch because Blizzard does not allow automated profession opening or unattended crafting. The
   window stays open when the profession window closes.
+- The queue's Shopping List demand is derived: every finished craft and bag change during a run re-syncs
+  it, so a crafted queue leaves nothing behind. A row's +/- on the Shopping List changes only your own
+  count on top of the queue's, and X takes the row off, the queued craft included. The next entry is
+  selected only when its own profession is open; otherwise the open profession keeps its selection and
+  the queue waits on Open First. The `ns.Apply` hook acts only when the queue turns on or off.
 - The Consumables picker offers the Well Fed food, flasks, elixirs and stat scrolls of Naowh's consumables
   list (the one in his profile, from Wowhead Forever), the Buff Reminders' weapon stones and oils, the
   healing and mana potions in `Shared/Game/Consumables.lua` and the Smart Macros' bandages. Plain food and

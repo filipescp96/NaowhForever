@@ -6,7 +6,8 @@ local account = {}
 local shoppingList, shoppingHave = {}, {}
 local shoppingAdds = {}
 local selected, quantity
-local craftHook
+local craftHook, applyHook
+local openProfession = 1
 local protectedOpenCalls = 0
 local settings = { enabled = true, shoppingList = true, craftQueue = false }
 local settingChanged
@@ -68,10 +69,10 @@ ns = {
         List = { Render = function() end },
         Detail = { Render = function() end },
         Recipes = {
-            Profession = function() return { id = 1 } end,
+            Profession = function() return { id = openProfession } end,
             Reagents = function(id) return reagents[id] or {} end,
             OutputItem = function(id)
-                return id == 100 and 1000 or id == 101 and 1001 or 2000, 1
+                return id == 100 and 1000 or id == 101 and 1001 or id == 300 and 3001 or 2000, 1
             end,
             ItemCount = function(id) return inventory[id] or 0 end,
             ItemName = function(id) return "Item " .. id end,
@@ -123,7 +124,10 @@ local env = setmetatable({
     CreateFrame = CreateFrame,
     GetRealmName = function() return "Realm" end,
     UnitName = function() return "Tester" end,
-    hooksecurefunc = function(_, name, fn) if name == "CraftRecipe" then craftHook = fn end end,
+    hooksecurefunc = function(_, name, fn)
+        if name == "CraftRecipe" then craftHook = fn elseif name == "Apply" then applyHook = fn end
+    end,
+    InCombatLockdown = function() return false end,
     wipe = Wipe,
 }, { __index = _G })
 env._G = env
@@ -239,6 +243,61 @@ Wipe(shoppingAdds)
 assert(queue.AddMissingToShopping(), "missing-material refresh did not run")
 assert(shoppingAdds[100] == 1 and shoppingAdds[200] == 1,
     "missing-material refresh did not rebuild queue-backed shopping entries")
+queue.Clear()
+
+Wipe(shoppingList)
+professionsFrame.shown = true
+inventory[2000], inventory[3000], inventory[4000], inventory[5000] = 0, 4, 2, 4
+queue.AddWithShopping(tradeSkill.GetRecipeInfo(100), 2)
+assert(shoppingList[100] and shoppingList[100].queueCount == 2, "queued craft did not reach the Shopping List")
+queue.Click()
+queue.Click()
+event(frames[1], "UNIT_SPELLCAST_SUCCEEDED", "player", nil, 200)
+inventory[2000] = 2
+event(frames[1], "UNIT_SPELLCAST_SUCCEEDED", "player", nil, 200)
+queue.Click()
+event(frames[1], "UNIT_SPELLCAST_SUCCEEDED", "player", nil, 100)
+assert(shoppingList[100] and shoppingList[100].count == 1 and shoppingList[100].queueCount == 1,
+    "finishing a craft did not lower its Shopping List demand")
+event(frames[1], "UNIT_SPELLCAST_SUCCEEDED", "player", nil, 100)
+assert(next(queue.List().crafts) == nil and not queue.Running(), "the crafted queue did not empty and stop")
+assert(next(shoppingList) == nil, "crafting the whole queue left its demand on the Shopping List")
+
+makes[3001] = { recipe = 300, made = 1, need = { [7000] = 1 }, prof = 2 }
+reagents[300] = { { itemID = 7000, need = 1 } }
+inventory[7000] = 1
+queue.Add(tradeSkill.GetRecipeInfo(300), 1)
+ns.Professions.State.selectedID = 999
+local craftedBefore2 = #crafts
+queue.Click()
+assert(queue.Running() and queue.Active().recipeID == 300,
+    "an entry for a closed profession was skipped instead of waiting to be opened")
+assert(ns.Professions.State.selectedID == 999 and not queue.Ready(),
+    "Start Queue changed the open profession's selection for another profession's craft")
+queue.Click()
+assert(ns.Professions.State.selectedID == 999 and #crafts == craftedBefore2,
+    "Craft Next touched the open profession while another one was needed")
+openProfession = 2
+queue.Click()
+assert(ns.Professions.State.selectedID == 300 and #crafts == craftedBefore2 + 1,
+    "Craft Next did not craft once the right profession was open")
+queue.Clear()
+openProfession = 1
+
+queue.Add(tradeSkill.GetRecipeInfo(100), 1)
+Wipe(shoppingAdds)
+assert(applyHook, "the profile hook was not installed with the runtime")
+applyHook()
+applyHook()
+assert(next(shoppingAdds) == nil, "a profile apply with nothing changed rebuilt the queue's Shopping List entries")
+settings.craftQueue = false
+applyHook()
+local listed = shoppingList[100]
+applyHook()
+assert(next(shoppingAdds) == nil and shoppingList[100] == listed, "the profile hook did work while the queue was off")
+settings.craftQueue = true
+applyHook()
+assert(shoppingAdds[100] == 1, "turning the queue back on through a profile did not restore its demand")
 queue.Clear()
 
 print("Crafting queue regression test: PASS")

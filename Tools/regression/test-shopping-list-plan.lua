@@ -236,4 +236,27 @@ env.NaowhForever.Professions.CraftQueue = { Clear = function() queueClears = que
 SL.Clear()
 check("Clear also empties the enabled Crafting Queue", queueClears == 1)
 
+local queueRemoved
+env.NaowhForever.Professions.CraftQueue.RemoveCraft = function(id) queueRemoved = id end
+SL.List()[20] = { name = "c20", count = 3, need = { [ORE] = 1 }, queueCount = 2, fromQueue = false }
+SL.Step(20, 1)
+check("+ on a mixed row raises your own count and keeps the queue part",
+    SL.List()[20].count == 4 and SL.List()[20].queueCount == 2)
+SL.Step(20, -1)
+SL.Step(20, -1)
+check("- on a mixed row can take your own count to zero", SL.List()[20].count == 2 and SL.List()[20].fromQueue)
+SL.Step(20, -1)
+check("- never cuts into the queue part", SL.List()[20].count == 2 and SL.List()[20].queueCount == 2)
+SL.Step(20, 1)
+check("+ on a queue-only row adds your own craft", SL.List()[20].count == 3 and not SL.List()[20].fromQueue)
+SL.Remove(20)
+check("X takes the whole row off and hands its queue part to the queue",
+    SL.List()[20] == nil and queueRemoved == 20)
+queueRemoved = nil
+SL.List()[21] = { name = "c21", count = 1, need = { [ORE] = 1 } }
+SL.Step(21, -1)
+SL.Remove(21)
+check("rows without a queue part keep their old floor and never touch the queue",
+    SL.List()[21] == nil and queueRemoved == nil)
+
 print(("test-shopping-list-plan: %d checks passed"):format(checks))

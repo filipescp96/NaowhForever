@@ -11,12 +11,13 @@ local V = P.Vendors
 
 local MAX_DEPTH = 4
 local PLAN_VERSION = 2
-local QUEUE_DELAY = C.QUEUE_DELAY or 0.2
+local QUEUE_DELAY = C.QUEUE_DELAY
 local TEXT_UNKNOWN = "?"
 local TEXT_NOTHING = ns.L("Nothing in the crafting queue can be crafted with the materials in your bags.")
 local TEXT_OPEN_REQUIRED = ns.L("Open the required profession manually, then click Craft Next again.")
 local EMPTY = {}
 local BUCKET_ORDER = { true, false }
+local APPLY_KEYS = { enabled = true, shoppingList = true, craftQueue = true }
 local orderedEntries = {}
 
 local Queue = {}
@@ -27,15 +28,15 @@ local runID = 0
 local ownerKey
 local events
 local hooked = false
-local applyHooked = false
+local applied
 local SyncShopping, Apply
 
 local function On()
-    return not (S and S.Get) or (S.Get("enabled") and S.Get("shoppingList") and S.Get("craftQueue"))
+    return S.Get("enabled") and S.Get("shoppingList") and S.Get("craftQueue")
 end
 
 local function ShoppingOn()
-    return not (S and S.Get) or S.Get("shoppingList")
+    return S.Get("shoppingList")
 end
 
 local function Mine()
@@ -59,6 +60,13 @@ local function Redraw()
     if P.List and P.List.UpdateQueueMarkers then P.List.UpdateQueueMarkers() end
 end
 
+local function OpenProfessionID()
+    local frame = _G.ProfessionsFrame
+    if not (frame and frame:IsShown()) or W.linked then return end
+    local profession = R.Profession()
+    return profession and profession.id
+end
+
 local function CopyNeed(recipeID)
     local need = {}
     local ok, reagents = pcall(R.Reagents, recipeID)
@@ -76,13 +84,13 @@ local function RecipeData(recipeID, fallback)
     local need = CopyNeed(recipeID)
     return {
         recipeID = recipeID,
-        name = (info and info.name) or (fallback and fallback.name) or (C_Spell.GetSpellName and C_Spell.GetSpellName(recipeID))
+        name = (info and info.name) or (fallback and fallback.name) or C_Spell.GetSpellName(recipeID)
             or ("Recipe " .. recipeID),
         icon = (info and info.icon) or (fallback and fallback.icon) or C_Spell.GetSpellTexture(recipeID),
         need = next(need) and need or (fallback and fallback.need) or {},
         output = output,
         made = made or (known and known.made) or 1,
-        prof = known and known.prof,
+        prof = (known and known.prof) or (fallback and fallback.prof) or OpenProfessionID(),
     }
 end
 
@@ -184,7 +192,7 @@ local function Step(recipeID, prerequisite, by)
     local old = tonumber(entry.count) or 1
     entry.count = math.max(1, math.min(C.MAX_CRAFTS, old + by))
     local delta = entry.count - old
-    if entry.prerequisite and entry.standalone ~= nil then
+    if prerequisite then
         entry.standalone = math.max(0, math.min(entry.count, (tonumber(entry.standalone) or 0) + delta))
     end
     if active and not active.started and active.recipeID == recipeID and active.prerequisite == prerequisite then
@@ -208,6 +216,12 @@ local function Remove(recipeID, prerequisite)
     end
     if not prerequisite then RebuildPrerequisites(mine) end
     SyncShopping()
+end
+
+local function RemoveCraft(recipeID)
+    local prerequisite = Mine().prerequisites[recipeID]
+    if prerequisite then prerequisite.standalone = nil end
+    Remove(recipeID, false)
 end
 
 local function Requirements(entry)
@@ -236,8 +250,14 @@ local function Missing(entry)
     return false
 end
 
+local function ProfessionOpen(entry)
+    local id = OpenProfessionID()
+    return id ~= nil and (not entry.prof or id == entry.prof)
+end
+
 local function CanCraft(entry)
     if Missing(entry) then return false end
+    if not ProfessionOpen(entry) then return true end
     local ok, info = pcall(C_TradeSkillUI.GetRecipeInfo, entry.recipeID)
     if not ok then return false end
     if not (info and info.learned ~= false) then return false end
@@ -283,7 +303,7 @@ local function FinishActive()
         if entry.count <= 0 then bucket[active.recipeID] = nil end
     end
     active.done = active.done + 1
-    Redraw()
+    SyncShopping()
 end
 
 local function Stop()
@@ -306,7 +326,7 @@ end
 
 local function OnCraftEvent(_, event, unit, _, spellID)
     if not (running and active) then return end
-    if event == "BAG_UPDATE_DELAYED" then return Redraw() end
+    if event == "BAG_UPDATE_DELAYED" then return SyncShopping() end
     if event == "TRADE_SKILL_CLOSE" then
         if active.started then
             local entry = Bucket(active.prerequisite)[active.recipeID]
@@ -326,6 +346,7 @@ local function OnCraftEvent(_, event, unit, _, spellID)
 end
 
 local function SelectForCrafting(entry)
+    if not ProfessionOpen(entry) then return end
     W.selectedID, W.selectedUnlearned = entry.recipeID, nil
     if P.List and P.List.Render then P.List.Render() end
     if P.Detail and P.Detail.Render then P.Detail.Render() end
@@ -334,10 +355,7 @@ local function SelectForCrafting(entry)
 end
 
 local function CraftContextReady(entry)
-    local frame = _G.ProfessionsFrame
-    if not (frame and frame:IsShown()) or W.linked then return false end
-    local profession = R.Profession()
-    if not profession or (entry.prof and profession.id ~= entry.prof) then return false end
+    if not ProfessionOpen(entry) then return false end
     local selected = R.SelectedInfo()
     return selected and selected.recipeID == entry.recipeID
 end
@@ -384,13 +402,10 @@ local function EnableRuntime()
         events = CreateFrame("Frame")
         events:SetScript("OnEvent", OnCraftEvent)
     end
-    if not hooked and hooksecurefunc then
+    if not hooked then
         hooksecurefunc(C_TradeSkillUI, "CraftRecipe", OnCraftRequested)
-        hooked = true
-    end
-    if not applyHooked and hooksecurefunc and Apply then
         hooksecurefunc(ns, "Apply", Apply)
-        applyHooked = true
+        hooked = true
     end
     return true
 end
@@ -411,7 +426,7 @@ end
 
 local function Click()
     if not On() then return end
-    if InCombatLockdown and InCombatLockdown() then return end
+    if InCombatLockdown() then return end
     if not running then
         Start()
         if running and active then
@@ -519,9 +534,13 @@ local function Count(recipeID)
 end
 
 Apply = function(key)
-    if key and key ~= "enabled" and key ~= "shoppingList" and key ~= "craftQueue" then return end
-    if On() then
-        SyncShopping()
+    if key and not APPLY_KEYS[key] then return end
+    local on = On() and true or false
+    if on == applied then return end
+    applied = on
+    if on then
+        local mine = Mine()
+        if next(mine.crafts) or next(mine.prerequisites) then SyncShopping() end
     else
         if running or active then Stop() end
         if DropShopping() then
@@ -541,6 +560,7 @@ Queue.AddMissingToShopping = AddMissingToShopping
 Queue.Count = Count
 Queue.Step = Step
 Queue.Remove = Remove
+Queue.RemoveCraft = RemoveCraft
 Queue.Clear = Clear
 Queue.Requirements = Requirements
 Queue.Missing = Missing
@@ -555,4 +575,4 @@ Queue.Ready = function()
 end
 Queue.EnableRuntime = EnableRuntime
 
-if S and S.OnChange then S.OnChange(Apply) end
+S.OnChange(Apply)

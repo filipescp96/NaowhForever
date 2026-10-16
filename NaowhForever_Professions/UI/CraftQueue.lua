@@ -29,7 +29,8 @@ local SECTION_GAP = 8
 local ROW_X = 2
 local SMALL_BUTTON = 16
 local STEP_GAP, MINUS_GAP = 6, 2
-local CLEAR_W, START_W = 68, 94
+local CLEAR_W, START_W, ADD_MISSING_W = 68, 94, 120
+local WARNING_GAP = 2
 local BUTTON_H = 24
 
 local TEXT_TITLE = ns.L("Crafting Queue")
@@ -67,7 +68,7 @@ local pools = { prerequisites = {}, crafts = {} }
 local sectionEntries = { prerequisites = {}, crafts = {} }
 
 local function On()
-    return S.Get("enabled") and S.Get("craftQueue")
+    return S.Get("enabled") and S.Get("shoppingList") and S.Get("craftQueue")
 end
 
 local function OnRowEnter(self)
@@ -176,7 +177,7 @@ local function PlaceSection(prerequisite, y, ordered)
             row.icon:SetTexture(entry.icon or C_Spell.GetSpellTexture(entry.recipeID))
             row.icon:ClearAllPoints()
             row.icon:SetPoint("LEFT", missing and row.warning or row,
-                missing and "RIGHT" or "LEFT", missing and 2 or 0, 0)
+                missing and "RIGHT" or "LEFT", missing and WARNING_GAP or 0, 0)
             row.name:ClearAllPoints()
             row.name:SetPoint("LEFT", row.icon, "RIGHT", NAME_GAP, 0)
             row.name:SetPoint("RIGHT", row.minus, "LEFT", -STEP_GAP, 0)
@@ -255,7 +256,7 @@ local function BuildFooter()
     start:SetPoint("BOTTOMRIGHT", -INSET, FOOTER + PAD)
     ns.AccentBorder(start)
     ns.Tooltip(start, TEXT_START, TIP_START_HELP)
-    addMissing = ns.Button(window, TEXT_ADD_MISSING, 120, BUTTON_H, Queue.AddMissingToShopping)
+    addMissing = ns.Button(window, TEXT_ADD_MISSING, ADD_MISSING_W, BUTTON_H, Queue.AddMissingToShopping)
     addMissing:SetPoint("LEFT", clear, "RIGHT", PAD, 0)
     addMissing:SetPoint("RIGHT", start, "LEFT", -PAD, 0)
     ns.Tooltip(addMissing, TEXT_ADD_MISSING, TIP_ADD_MISSING_HELP)

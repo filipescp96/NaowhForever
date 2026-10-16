@@ -364,16 +364,18 @@ end
 local function Step(recipeID, by)
     local craft = recipeID and List()[recipeID]
     if not craft then return end
-    if craft.queueCount and P.CraftQueue then return P.CraftQueue.Step(recipeID, false, by) end
-    craft.count = math.max(1, math.min(C.MAX_CRAFTS, craft.count + by))
+    local queued = craft.queueCount or 0
+    local own = math.max(queued > 0 and 0 or 1, math.min(C.MAX_CRAFTS, craft.count - queued + by))
+    craft.count = queued + own
+    if queued > 0 then craft.fromQueue = own == 0 end
     Trim()
     Redraw()
 end
 
 local function Remove(recipeID)
     local craft = recipeID and List()[recipeID]
-    if craft and craft.queueCount and P.CraftQueue then return P.CraftQueue.Remove(recipeID, false) end
     List()[recipeID] = nil
+    if craft and craft.queueCount then return P.CraftQueue.RemoveCraft(recipeID) end
     Trim()
     Redraw()
 end

@@ -202,7 +202,8 @@ local function DrawCrafts(y)
         if not row.remove then
             StepButtons(row, Shopping.Remove, Shopping.Step, TIP_REMOVE_HELP, TIP_MORE_HELP, TIP_FEWER_HELP)
         end
-        Widgets.EnableButton(row.minus, e.craft.count > 1)
+        local queued = e.craft.queueCount
+        Widgets.EnableButton(row.minus, e.craft.count - (queued or 0) > (queued and 0 or 1))
         row.key, row.spell, row.item = e.id, e.id, nil
         row.icon:SetTexture(e.craft.icon or C_Spell.GetSpellTexture(e.id))
         row.name:SetText(TEXT_ROW:format(e.craft.count, e.craft.name or TEXT_UNKNOWN))
