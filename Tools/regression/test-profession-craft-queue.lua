@@ -141,6 +141,17 @@ queue.Add(tradeSkill.GetRecipeInfo(100), 2)
 local list = queue.List()
 assert(list.crafts[100] and list.crafts[100].count == 2, "main craft was not queued")
 assert(list.prerequisites[200] and list.prerequisites[200].count == 2, "prerequisite craft was not queued")
+queue.Add(tradeSkill.GetRecipeInfo(101), 1)
+local ordered = queue.Ordered()
+assert(ordered[1].prerequisite and ordered[2].recipeID == 100 and ordered[3].recipeID == 101,
+    "the initial queue order did not keep prerequisites first and crafts alphabetical")
+assert(queue.Move(100, false, 101), "a craft could not be moved within its section")
+ordered = queue.Ordered()
+assert(ordered[1].prerequisite and ordered[2].recipeID == 101 and ordered[3].recipeID == 100,
+    "the moved craft order was not saved")
+assert(not queue.Move(200, true, 100) and queue.Ordered()[1].recipeID == 200,
+    "a prerequisite moved into the regular craft section")
+queue.Remove(101, false)
 
 local _, missing, vendorCost = queue.Requirements(list.crafts[100])
 assert(missing == true, "missing materials were not detected")
