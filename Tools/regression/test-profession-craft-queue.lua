@@ -11,6 +11,9 @@ local openProfession = 1
 local protectedOpenCalls = 0
 local settings = { enabled = true, shoppingList = true, craftQueue = false }
 local settingChanged
+local printed
+local recipeRequirements = {}
+local playerName = "Tester"
 
 local function Wipe(t) for key in pairs(t) do t[key] = nil end return t end
 local function Noop() end
@@ -54,7 +57,7 @@ local tradeSkill = {
         return { recipeID = id, name = name, icon = id, learned = true }
     end,
     GetRecipeCooldown = function() return nil end,
-    GetRecipeRequirements = function() return {} end,
+    GetRecipeRequirements = function() return recipeRequirements end,
     CraftRecipe = function(id, count)
         crafts[#crafts + 1] = { id = id, count = count }
         if craftHook then craftHook(id, count) end
@@ -76,7 +79,7 @@ local reagents = {
 local ns
 ns = {
     L = function(text) return text end,
-    Print = function() end,
+    Print = function(text) printed = text end,
     AccountSettings = function() return account end,
     Professions = {
         Settings = {
@@ -142,11 +145,12 @@ local env = setmetatable({
     ProfessionsFrame = professionsFrame,
     CreateFrame = CreateFrame,
     GetRealmName = function() return "Realm" end,
-    UnitName = function() return "Tester" end,
+    UnitName = function() return playerName end,
     hooksecurefunc = function(_, name, fn)
         if name == "CraftRecipe" then craftHook = fn elseif name == "Apply" then applyHook = fn end
     end,
     InCombatLockdown = function() return false end,
+    UNKNOWNOBJECT = "Unknown",
     wipe = Wipe,
 }, { __index = _G })
 env._G = env
@@ -314,6 +318,20 @@ assert(ns.Professions.State.selectedID == 300 and #crafts == craftedBefore2 + 1,
 queue.Clear()
 openProfession = 1
 
+inventory[2000] = 1
+recipeRequirements = {
+    { name = "Forge", met = false },
+    { name = "Blacksmith Hammer", met = false },
+}
+queue.Add(tradeSkill.GetRecipeInfo(101), 1)
+queue.Click()
+assert(printed == "Requires: Forge, Blacksmith Hammer",
+    "an unmet tool or location reported the missing-material message")
+assert(not queue.Running(), "a queue blocked by a tool or location remained stuck as running")
+recipeRequirements = {}
+inventory[2000] = 2
+queue.Clear()
+
 queue.Add(tradeSkill.GetRecipeInfo(100), 1)
 Wipe(shoppingAdds)
 assert(applyHook, "the profile hook was not installed with the runtime")
@@ -331,6 +349,31 @@ assert(shoppingAdds[100] == 1, "turning the queue back on through a profile did 
 queue.Clear()
 
 queue.Add(tradeSkill.GetRecipeInfo(100), 1)
+playerName = "Alt"
+Load({ "NaowhForever_Professions/CraftQueue.lua" }, env)
+local alt = ns.Professions.CraftQueue
+assert(next(alt.List().crafts) == nil and next(alt.List().prerequisites) == nil,
+    "another character inherited the first character's crafting queue")
+alt.Add(tradeSkill.GetRecipeInfo(101), 1)
+assert(alt.List().crafts[101] and not alt.List().crafts[100],
+    "the second character did not get an independent crafting queue")
+assert(queue.List().crafts[100] and not queue.List().crafts[101],
+    "the first character's crafting queue changed with the second character's")
+alt.Clear()
+
+playerName = "Unknown"
+Load({ "NaowhForever_Professions/CraftQueue.lua" }, env)
+local unknown = ns.Professions.CraftQueue
+unknown.Add(tradeSkill.GetRecipeInfo(101), 1)
+assert(account.profCraftQueue["Unknown-Realm"] == nil, "the queue was saved under an unknown character")
+playerName = "Late"
+assert(next(unknown.List().crafts) == nil and account.profCraftQueue["Late-Realm"],
+    "the queue did not pick up the character once its name was known")
+
+playerName = "Tester"
+Load({ "NaowhForever_Professions/CraftQueue.lua" }, env)
+queue = ns.Professions.CraftQueue
+
 queue.Add(tradeSkill.GetRecipeInfo(101), 1)
 assert(next(queue.List().prerequisites) == nil, "a craft with its materials in the bags queued a prerequisite")
 

@@ -67,6 +67,7 @@ NaowhForever_Professions/
     ShoppingList.lua   the shopping list beside the auction house: check and buy
     CraftQueue.lua     the standalone Crafting Queue window (ns.ToggleCraftQueue)
     TrainFavorites.lua Train Favorites beside the trainer
+    FavoriteMarks.lua  stars beside favorite unlearned recipes at trainers and merchants
     FavoritePatterns.lua Search Favorites AH beside the auction house
     CraftTimer.lua     Total Craft Timer
     GatherTracking.lua the Tracking Reminder
@@ -158,8 +159,12 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   short of Create, hence the Buy row's 4 overhang.
 - Bind on Equip also counts items that never bind (bindType 0): on the beta much crafted gear does not
   bind and still sells on the auction house.
-- Favourites are kept by spell ID, which is also a known recipe's recipeID. A known one is told to
-  the game too, so Blizzard's own favourites count; an unlearned one lives only in the profile.
+- Favourites are kept per character by spell ID, which is also a known recipe's recipeID. A known one
+  is told to the game too, so Blizzard's own favourites count; an unlearned one lives in the account
+  store under that character's name and realm. Each character starts from the former profile-wide
+  list the first time it loads, and that list stays in the profile for the others. Favourites and the
+  crafting queue are empty and unsaved while the game still names the player Unknown; once it names
+  them, the name and realm key is kept, as the favourite filter asks for it once per recipe.
 - Prices: a reagent costs its vendor price once a merchant was seen selling it, else the lowest buyout
   at the last scan; the auction house keeps 5% of a sale. Profit is cached per recipe until the next
   full draw, so scrolling and the filter do not price every recipe again. Reagents unchecked in the
@@ -202,6 +207,14 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   A search with no reply in 3s is put back for Resume, and a scan that ends with any unanswered
   stays on Resume rather than done. Lookup timeouts keep their own counter, so a reset cannot hand a
   new search the number of a pending timeout.
+- Favorite Recipe Marks starts off and registers nothing while off. When enabled, it uses the existing
+  favorite-pattern and trainer-offer lists: only unlearned, unowned patterns in stock and currently
+  trainable favorite recipes receive a star. It hooks update functions without replacing their scripts.
+  The favorite sets are built when a trainer or merchant opens, a trainer updates, bags change or a
+  favorite or learned recipe changes; scrolling and the merchant's own redraw only repaint the rows.
+  MERCHANT_UPDATE is left to MerchantFrame_Update, which the game calls for it on the next frame.
+  The star sits after the visible name text, measured from the name's left edge, and stops at the
+  row's right edge: the merchant name box is wider than its text and nearly reaches the row's edge.
 - Starting a commodity purchase is protected (ADDON_ACTION_BLOCKED when tried on its own, seen
   2026-09-30), so the shopping list buys each material after the first on a click of Buy Next. A
   final price 10% over the check is warned about. A search sent while the auction house is busy is
@@ -221,6 +234,9 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   The drop target is the row under the cursor when the drag stops (`GetMouseFoci`): the dragged row keeps
   the mouse, so other rows get no OnEnter during a drag. Reordering while a craft is prepared but not
   started picks the next craft again; once it has started, rows cannot be dragged.
+- When every queued craft is blocked, the queue reads the game's unmet recipe requirements and names
+  missing tools and locations, such as a Blacksmith Hammer or Forge. The generic material warning is
+  used only when no recipe requirement explains the block.
 - The queue's Shopping List demand is derived: every finished craft and bag change during a run re-syncs
   it, so a crafted queue leaves nothing behind. A row's +/- on the Shopping List changes only your own
   count on top of the queue's, and X takes the row off, the queued craft included. The next entry is
@@ -251,8 +267,9 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   listens to bag changes and level ups only while it shows. The plan tells it of every list change
   (`Shopping.OnChange`); changes and bag updates redraw at most once a frame and only rewrite the rows'
   amounts and counts, while opening, a level up, the toggle and items loading pick the rows again.
-- A starred pick is a favourite: it moves out of its kind into Favorites at the top, in kind order. Favourites
-  are kept in the profile by item ID (`shopFavorites`), like the favourite recipes. Only what the picker
+- A starred pick is a favourite: it moves out of its kind into Favorites at the top, in kind order.
+  Favourites are kept in the profile by item ID (`shopFavorites`), unlike the per-character recipe
+  favourites. Only what the picker
   offers can show there, so a favourite the class filter or your level leaves out stays hidden until it is
   offered again.
 - The search box above the list keeps the rows whose name holds what is typed, any case. Typing and a star
@@ -337,3 +354,4 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   and the looks in `test-icon-look.lua` and
   `test-qol-bars-look.lua`.
 - Vendor Shopping List routing and purchases: `test-profession-shopping-vendor.lua`.
+- Favorite trainer and merchant stars: `test-profession-favorite-marks.lua`.
