@@ -129,6 +129,7 @@ ns.FEATURES = {
         enabled = true,
         levelUpToast = true,
         trainerPanel = true,
+        spellbook = false,
     },
     discovery = {
         enabled = false,
@@ -195,6 +196,8 @@ ns.FEATURES = {
         enabled = true,
         raidBuffs = false,
         personalBuffs = true,
+        classBuffTracker = false,
+        classBuffGlow = false,
         weaponEnhancements = false,
         wornReminders = false,
         campfire = true,
