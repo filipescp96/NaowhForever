@@ -242,11 +242,18 @@ do
     calls = c.statsCalls
     GI.StatsFromGear(record)
     check("the per-link cache is bounded: old links are read again after it fills", c.statsCalls > calls)
-    collectgarbage("collect")
-    local before = collectgarbage("count")
     for i = 1, 5000 do c.ns.StatWeights.Stats("item:8" .. i) end
-    collectgarbage("collect")
-    check("the per-link cache stays small however many links pass", collectgarbage("count") - before < 120)
+    local statsOf, cacheMax
+    for i = 1, 20 do
+        local name, value = debug.getupvalue(c.ns.StatWeights.Stats, i)
+        if not name then break end
+        if name == "statsOf" then statsOf = value end
+        if name == "CACHE_MAX" then cacheMax = value end
+    end
+    local retained = 0
+    for _ in pairs(statsOf or {}) do retained = retained + 1 end
+    check("the per-link cache stays bounded however many links pass",
+        type(cacheMax) == "number" and retained <= cacheMax)
 
     GI.StatsFromGear(record)
     Measure("stats summed from 4 items", 0.2, function() GI.StatsFromGear(record) end)
