@@ -1,4 +1,5 @@
--- Shopping List vendor regression: merchant bundles, limited stock, click-driven buys, and purchase tracking.
+-- Shopping List vendor regression: merchant bundles, limited stock, click-driven buys, and purchases
+-- counted only once they land in the bags (refused ones never), with Buy at Vendor left as it was.
 local Load = dofile("Tools/regression/load_files.lua")
 
 local checks = 0
@@ -7,7 +8,9 @@ local function check(label, value) assert(value, label); checks = checks + 1 end
 local settings, applyHooks = {}, {}
 local merchantShown = false
 local purchases, messages, drops = {}, {}, {}
-local redraws = 0
+local bags, freeSlots = {}, 10
+local redraws, viewEvents = 0, 0
+local registry = {}
 local merchantItems = {
     { item = 111, price = 200, stack = 5, available = -1 },
     { item = 222, price = 100, stack = 5, available = 1 },
@@ -20,10 +23,22 @@ local materials = {
 
 local function Noop() end
 local frameMethods = {}
-function frameMethods.RegisterEvent() end
-function frameMethods.UnregisterAllEvents() end
+function frameMethods.RegisterEvent(frame, event) registry[event] = frame end
+function frameMethods.UnregisterEvent(frame, event)
+    if registry[event] == frame then registry[event] = nil end
+end
+function frameMethods.UnregisterAllEvents(frame)
+    for event, f in pairs(registry) do
+        if f == frame then registry[event] = nil end
+    end
+end
 function frameMethods.SetScript(frame, name, fn) frame.scripts[name] = fn end
 local frameMeta = { __index = function(_, key) return frameMethods[key] or Noop end }
+
+local function Fire(event)
+    local frame = registry[event]
+    if frame then frame.scripts.OnEvent(frame, event) end
+end
 
 local ns = {
     L = dofile("Tools/regression/locale_stub.lua").L,
@@ -69,6 +84,8 @@ local env = setmetatable({
             return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 7
         end,
     },
+    C_Container = { CalculateTotalNumberOfFreeBagSlots = function() return freeSlots end },
+    ERR_INV_FULL = "Inventory is full.",
     Enum = { ItemClass = { Tradegoods = 7 } },
     MerchantFrame = { IsShown = function() return merchantShown end },
     GetMerchantNumItems = function() return #merchantItems end,
@@ -86,7 +103,8 @@ local P = ns.Professions
 P.Recipes = {
     Link = function(itemID) return "item:" .. itemID end,
     Owned = function() return {} end,
-    Reagents = function() return {} end,
+    Reagents = function() return { { itemID = 111, need = 5 } } end,
+    ItemCount = function(itemID) return bags[itemID] or 0 end,
 }
 P.Text = { Money = tostring }
 P.Shopping = {
@@ -96,9 +114,11 @@ P.Shopping = {
     end,
     Redraw = function() redraws = redraws + 1 end,
 }
+P.ShoppingVendorView = { Hide = Noop, OnMerchantEvent = function() viewEvents = viewEvents + 1 end }
 Load({ "NaowhForever_Professions/Vendors.lua" }, env)
+local V = P.Vendors
 
-local list, total = P.Vendors.ShoppingNeeds()
+local list, total = V.ShoppingNeeds()
 check("only Shopping List materials sold by this merchant are listed", #list == 2)
 check("unlimited stock rounds seven items to two five-item bundles",
     list[1].itemID == 111 and list[1].want == 7 and list[1].count == 10 and list[1].cost == 400)
@@ -107,15 +127,72 @@ check("limited stock marks the unmet remainder",
 check("the total uses whole merchant purchases", total == 500)
 check("listing materials never buys anything", #purchases == 0)
 
-check("buying one shortage succeeds", P.Vendors.BuyShoppingItem(111) == true)
-check("a click buys the rounded item count in merchant-sized chunks",
-    #purchases == 2 and purchases[1].count == 5 and purchases[2].count == 5)
-check("the Shopping List records the purchased bundle", drops[111] == 10 and redraws == 1)
-check("the purchase reports what was bought", #messages == 1)
-
 merchantShown = true
 P.Settings.Set("shoppingList", true)
-check("Shopping List learns vendor trade goods", settings.account.profVendorItems[111] == true)
-check("Shopping List records the vendor unit price", settings.account.profVendorPrices[111] == 40)
+check("Shopping List alone learns nothing at a merchant", settings.account.profVendorItems == nil)
+P.Settings.Set("shoppingVendor", true)
+check("Vendor Items on Shopping List learns vendor trade goods", settings.account.profVendorItems[111] == true)
+check("and records the vendor unit price", settings.account.profVendorPrices[111] == 40)
+
+check("buying one shortage succeeds", V.BuyShoppingItem(111) == true)
+check("a click buys the rounded item count in merchant-sized chunks",
+    #purchases == 2 and purchases[1].count == 5 and purchases[2].count == 5)
+check("the purchase reports what was bought", #messages == 1)
+check("nothing is counted before it lands", drops[111] == nil)
+check("Buy waits for the purchase", V.Waiting() and registry.BAG_UPDATE_DELAYED ~= nil)
+Fire("BAG_UPDATE_DELAYED")
+check("a bag update without the item counts nothing and keeps waiting", drops[111] == nil and V.Waiting())
+bags[111] = 10
+redraws = 0
+Fire("BAG_UPDATE_DELAYED")
+check("once it lands, the Shopping List records the bundle", drops[111] == 10 and redraws == 1)
+check("and stops waiting and listening to bags", not V.Waiting() and registry.BAG_UPDATE_DELAYED == nil)
+bags[111] = 20
+Fire("BAG_UPDATE_DELAYED")
+check("later bag changes are not purchases", drops[111] == 10)
+
+drops[111], drops[222] = nil, nil
+check("Buy All succeeds", V.BuyShoppingAll() == true)
+bags[111] = 30
+Fire("BAG_UPDATE_DELAYED")
+check("each item counts as it lands", drops[111] == 10 and drops[222] == nil and V.Waiting())
+bags[222] = 5
+Fire("BAG_UPDATE_DELAYED")
+check("and Buy All is done when the last one lands", drops[222] == 5 and not V.Waiting())
+
+drops[111] = nil
+check("a purchase the merchant refuses is still asked for", V.BuyShoppingItem(111) == true)
+viewEvents = 0
+Fire("UI_ERROR_MESSAGE")
+check("an error stops the wait so Buy can be clicked again", not V.Waiting() and viewEvents == 1)
+Fire("BAG_UPDATE_DELAYED")
+check("a refused purchase is never counted", drops[111] == nil)
+bags[111] = 40
+Fire("BAG_UPDATE_DELAYED")
+check("but one that lands after the error still counts", drops[111] == 10)
+
+drops[111] = nil
+V.BuyShoppingItem(111)
+merchantShown = false
+Fire("MERCHANT_CLOSED")
+check("closing the merchant stops waiting", not V.Waiting() and registry.BAG_UPDATE_DELAYED == nil)
+bags[111] = 50
+Fire("BAG_UPDATE_DELAYED")
+check("and nothing lands on the list after it", drops[111] == nil)
+merchantShown = true
+
+local bought = #purchases
+freeSlots = 0
+messages = {}
+check("with full bags nothing is bought", V.BuyShoppingItem(111) == false and #purchases == bought)
+check("and the game's full-bags message is shown", messages[1] == env.ERR_INV_FULL and not V.Waiting())
+
+check("Buy at Vendor still buys with full bags, as before", V.Buy(1, 2) == true and #purchases == bought + 2)
+check("and never counts on the Shopping List", drops[111] == nil and not V.Waiting())
+freeSlots = 10
+
+V.BuyShoppingItem(111)
+P.Settings.Set("shoppingVendor", false)
+check("turning the setting off drops a pending purchase", not V.Waiting() and registry.BAG_UPDATE_DELAYED == nil)
 
 print(("test-profession-shopping-vendor: %d checks passed"):format(checks))

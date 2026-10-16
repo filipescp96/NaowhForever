@@ -28,7 +28,6 @@ local NAME_GAP, NOTE_GAP = Style.ICON_NAME_GAP, Style.NOTE_GAP
 local BUY_W, BUY_ALL_W = 52, 126
 local BUTTON_H = 24
 local VENDOR_GAP = 8
-local RETRY_DELAY = 0.2
 local SHOW_DELAY = 0
 local TEXT_TITLE = ns.L("Buy from Vendor")
 local TEXT_SUBTITLE = ns.L("Shopping List materials sold here.")
@@ -47,11 +46,11 @@ P.ShoppingVendorView = View
 
 local window, scroll, content, totalText, buyAll
 local rows = {}
-local dismissed, pending, hiding = false, false, false
+local dismissed, hiding = false, false
 local Render
 
 local function On()
-    return S.Get("enabled") and S.Get("shoppingList")
+    return S.Get("enabled") and S.Get("shoppingList") and S.Get("shoppingVendor")
 end
 
 local function ProgrammaticHide()
@@ -74,25 +73,16 @@ local function OnRowEnter(self)
     GameTooltip:Show()
 end
 
-local function FinishPurchase()
-    pending = false
-    Render()
-end
-
 local function Purchase(itemID)
-    if pending then return end
-    pending = true
+    if V.Waiting() then return end
+    V.BuyShoppingItem(itemID)
     Render()
-    if not V.BuyShoppingItem(itemID) then return FinishPurchase() end
-    C_Timer.After(RETRY_DELAY, FinishPurchase)
 end
 
 local function PurchaseAll()
-    if pending then return end
-    pending = true
+    if V.Waiting() then return end
+    V.BuyShoppingAll()
     Render()
-    if not V.BuyShoppingAll() then return FinishPurchase() end
-    C_Timer.After(RETRY_DELAY, FinishPurchase)
 end
 
 local function NewRow(index)
@@ -141,7 +131,7 @@ local function Fill(list)
             else
                 row.note:SetText(cost)
             end
-            Widgets.EnableButton(row.buy, not pending and GetMoney() >= entry.cost)
+            Widgets.EnableButton(row.buy, not V.Waiting() and GetMoney() >= entry.cost)
             row:Show()
         elseif row then
             row.item = nil
@@ -197,7 +187,7 @@ Render = function()
     window:SetHeight(HEADER + PAD * 2 + visible * ROW_H + BOTTOM_H + FOOTER)
     totalText:SetText(TEXT_TOTAL:format(Text.Short(total)))
     ns.SetButtonText(buyAll, TEXT_BUY_ALL:format(Text.Short(total)))
-    Widgets.EnableButton(buyAll, not pending and GetMoney() >= total)
+    Widgets.EnableButton(buyAll, not V.Waiting() and GetMoney() >= total)
     Place()
     window:SetScale(ns.UIScale())
     window:Show()
@@ -206,11 +196,11 @@ end
 
 local function OnMerchantEvent(event)
     if event == "MERCHANT_SHOW" then
-        dismissed, pending = false, false
+        dismissed = false
         return C_Timer.After(SHOW_DELAY, Render)
     end
     if event == "MERCHANT_CLOSED" then
-        dismissed, pending = false, false
+        dismissed = false
         return ProgrammaticHide()
     end
     Render()
@@ -224,4 +214,5 @@ function View.Hide()
     ProgrammaticHide()
 end
 
+Shopping.OnChange(Render)
 if On() and V.Open() then C_Timer.After(SHOW_DELAY, Render) end

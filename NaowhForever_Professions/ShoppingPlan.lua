@@ -99,6 +99,15 @@ local function Trim()
     Changed()
 end
 
+local function VendorOn()
+    return P.Settings.Get("shoppingVendor")
+end
+
+local function SkipVendor(item)
+    local api = ns.ProfWindowAPI
+    return not VendorOn() and api and api.IsVendorItem(item)
+end
+
 local function VendorPrice(item)
     local api = ns.ProfWindowAPI
     local vendor = api and api.IsVendorItem(item) and ns.AccountSettings().profVendorPrices
@@ -114,7 +123,7 @@ end
 
 local function BuyFromVendor(item)
     local api = ns.ProfWindowAPI
-    if not (api and api.IsVendorItem(item)) then return false end
+    if not (VendorOn() and api and api.IsVendorItem(item)) then return false end
     local auction, vendor = ns.AuctionPrice and ns.AuctionPrice(item), VendorPrice(item)
     return not (auction and vendor and auction < vendor)
 end
@@ -152,7 +161,7 @@ local function ByName(a, b)
 end
 
 local function Listed(part)
-    return not shopPlan.owned[part]
+    return not shopPlan.owned[part] and not SkipVendor(part)
 end
 
 local function Supply(item, want, from, into, depth)
@@ -336,7 +345,7 @@ local function Needs(recipeID)
     local out, owned = {}, api.Owned()
     local ok, reagents = pcall(api.Reagents, recipeID)
     for _, r in ipairs(ok and reagents or EMPTY) do
-        if not owned[r.itemID] then out[r.itemID] = r.need end
+        if not owned[r.itemID] and not SkipVendor(r.itemID) then out[r.itemID] = r.need end
     end
     return out
 end
@@ -347,7 +356,7 @@ local function HasNeeds(recipeID)
     local ok, reagents = pcall(api.Reagents, recipeID)
     if not ok then return false end
     for _, r in ipairs(reagents) do
-        if not owned[r.itemID] then return true end
+        if not owned[r.itemID] and not SkipVendor(r.itemID) then return true end
     end
     return false
 end
