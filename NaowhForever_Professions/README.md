@@ -206,6 +206,11 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
 - Favorite Recipe Marks starts off and registers nothing while off. When enabled, it uses the existing
   favorite-pattern and trainer-offer lists: only unlearned, unowned patterns in stock and currently
   trainable favorite recipes receive a star. It hooks update functions without replacing their scripts.
+  The favorite sets are built when a trainer or merchant opens, a trainer updates, bags change or a
+  favorite or learned recipe changes; scrolling and the merchant's own redraw only repaint the rows.
+  MERCHANT_UPDATE is left to MerchantFrame_Update, which the game calls for it on the next frame.
+  The star sits after the visible name text, measured from the name's left edge, and stops at the
+  row's right edge: the merchant name box is wider than its text and nearly reaches the row's edge.
 - Starting a commodity purchase is protected (ADDON_ACTION_BLOCKED when tried on its own, seen
   2026-09-30), so the shopping list buys each material after the first on a click of Buy Next. A
   final price 10% over the check is warned about. A search sent while the auction house is busy is

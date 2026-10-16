@@ -11,6 +11,8 @@ local merchantHook, trainerHook, favoriteHook, scrollHook
 local vendorEntries = { { item = 111 } }
 local trainerOffers = { { name = "Fine Leather Gloves" } }
 local stock = -1
+local listCalls, offerCalls = 0, 0
+local ROW_RIGHT, NAME_LEFT = 153, 46
 
 local textureMethods = {}
 function textureMethods:SetSize(width, height) self.width, self.height = width, height end
@@ -23,22 +25,27 @@ local function Texture()
     return setmetatable({ shown = false }, { __index = textureMethods })
 end
 
-local function Font(text)
-    return { GetText = function() return text end }
+local function Font(text, width)
+    return {
+        GetText = function() return text end,
+        GetStringWidth = function() return width end,
+        GetLeft = function() return NAME_LEFT end,
+    }
 end
 
 local rowMethods = {}
 function rowMethods:GetName() return self.frameName end
+function rowMethods:GetRight() return ROW_RIGHT end
 function rowMethods:CreateTexture()
     self.mark = Texture()
     return self.mark
 end
 
-local function Row(name, text, index)
+local function Row(name, text, index, width)
     return setmetatable({
         frameName = name,
-        Name = Font(text),
-        Text = Font(text),
+        Name = Font(text, width),
+        Text = Font(text, width),
         ItemButton = { GetID = function() return index end },
     }, { __index = rowMethods })
 end
@@ -85,9 +92,9 @@ local ns = {
     },
 }
 
-local merchantRow = Row("MerchantItem1", "Pattern: Fine Leather Gloves", 1)
-local trainerRow = Row("ClassTrainerSkill1", "Fine Leather Gloves", 1)
-local otherTrainerRow = Row("ClassTrainerSkill2", "Other Recipe", 2)
+local merchantRow = Row("MerchantItem1", "Pattern: Fine Leather Gloves", 1, 100)
+local trainerRow = Row("ClassTrainerSkill1", "Fine Leather Gloves", 1, 60)
+local otherTrainerRow = Row("ClassTrainerSkill2", "Other Recipe", 2, 60)
 local scroll = {
     Update = Noop,
     ForEachFrame = function(_, fn) fn(trainerRow) end,
@@ -103,7 +110,7 @@ local env = setmetatable({
     MerchantFrame_Update = Noop,
     ClassTrainerFrame_Update = Noop,
     GetMerchantItemID = function(index) return index == 1 and 111 or nil end,
-    GetMerchantItemInfo = function() return "Pattern", nil, 1, 1, stock end,
+    C_MerchantFrame = { GetItemInfo = function() return { numAvailable = stock } end },
     CreateFrame = function()
         local frame = setmetatable({ scripts = {} }, { __index = frameMethods })
         frames[#frames + 1] = frame
@@ -129,8 +136,14 @@ env._G = env
 Load({ "Core/Features.lua", "NaowhForever_Professions/Professions.lua" }, env)
 local P, S = ns.Professions, ns.ProfessionSettings
 P.Patterns = {
-    List = function() return vendorEntries end,
-    TrainerOffers = function() return trainerOffers end,
+    List = function()
+        listCalls = listCalls + 1
+        return vendorEntries
+    end,
+    TrainerOffers = function()
+        offerCalls = offerCalls + 1
+        return trainerOffers
+    end,
 }
 P.Widgets = { Star = function(mark) mark.starred = true end }
 P.Favorites = { Toggle = Noop }
@@ -148,6 +161,9 @@ Check("an in-stock favorite vendor pattern is starred", merchantRow.mark and mer
 Check("a currently trainable favorite recipe is starred", trainerRow.mark and trainerRow.mark.shown
     and trainerRow.mark.starred)
 Check("ordinary trainer recipes stay unmarked", not otherTrainerRow.mark)
+Check("a short name puts the star after its text", trainerRow.mark.point[2] == trainerRow.Name
+    and trainerRow.mark.point[3] == "LEFT" and trainerRow.mark.point[4] == 64)
+Check("a name filling its box keeps the star inside the row", merchantRow.mark.point[4] == 95)
 
 vendorEntries, trainerOffers = {}, {}
 Fire("SPELLS_CHANGED")
@@ -155,11 +171,18 @@ Check("learned or unfavorited entries lose their marks", not merchantRow.mark.sh
 
 vendorEntries = { { item = 111 } }
 stock = 0
-Fire("MERCHANT_UPDATE")
+Fire("MERCHANT_SHOW")
 Check("sold-out patterns stay unmarked", not merchantRow.mark.shown)
+local before = listCalls
 stock = -1
-Fire("MERCHANT_UPDATE")
+merchantHook()
 Check("restocked favorite patterns are marked", merchantRow.mark.shown)
+Check("a merchant update repaints without walking the patterns", listCalls == before)
+Fire("MERCHANT_UPDATE")
+Check("merchant updates are left to the game's own redraw", listCalls == before)
+Fire("MERCHANT_SHOW")
+merchantHook()
+Check("opening a merchant walks the patterns once", listCalls == before + 1)
 
 env.MerchantFrame.selectedTab = 2
 merchantHook()
@@ -170,8 +193,15 @@ vendorEntries, trainerOffers = {}, {}
 favoriteHook()
 Check("changing a favorite refreshes both windows", not merchantRow.mark.shown and not trainerRow.mark.shown)
 vendorEntries, trainerOffers = { { item = 111 } }, { { name = "Fine Leather Gloves" } }
+Fire("TRAINER_SHOW")
+Check("opening a trainer marks its favorite recipes", trainerRow.mark.shown)
+before = offerCalls
 scrollHook()
-Check("trainer scrolling refreshes visible rows", trainerRow.mark.shown)
+scrollHook()
+trainerHook()
+Check("trainer scrolling repaints without rebuilding the offers", trainerRow.mark.shown and offerCalls == before)
+Fire("TRAINER_UPDATE")
+Check("a trainer update rebuilds the offers once", offerCalls == before + 1)
 
 S.Set("favoriteVendorMarks", false)
 Check("turning it off unregisters its events", Listening() == 0)
