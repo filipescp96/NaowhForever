@@ -350,9 +350,9 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   last manual Scan Prices; it never starts or repeats an auction scan. Its compact outcome bands are
   original tables for classic-era Uncommon, Rare and Epic weapons and armor. A deal is omitted when
   any possible material has no scan price, instead of overstating an incomplete expected value.
-- Profit mode ranks positive expected returns after the 5% auction cut by profit and ROI, regardless
-  of the character's current Enchanting skill. Guaranteed profit means even the least valuable
-  possible result is worth more than the item. Level Up ranks items the character can disenchant by
+- Profit mode ranks positive expected returns after the 5% auction cut by profit and ROI. It includes
+  every skill level unless For my Enchant Lvl is checked. Guaranteed profit means even the least
+  valuable possible result is worth more than the item. Level Up ranks items the character can disenchant by
   low cash investment first, keeps only ten visible choices, and shows none at skill 60 or above.
 - Calculations run only after Find Deals, in bounded chunks. Item data loads five at a time; closing
   the auction house or changing modes pauses at the saved cursor, and the completed results stay

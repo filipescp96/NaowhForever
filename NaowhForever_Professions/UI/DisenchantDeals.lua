@@ -19,6 +19,7 @@ local ROW_TOP = 62
 local FILTER_TOP = -36
 local FILTER_H = 18
 local FILTER_W = 190
+local SKILL_FILTER_W = 180
 local TOGGLE_W, TOGGLE_H = 38, 18
 local FILTER_TOGGLE_W, FILTER_TOGGLE_H = 30, 14
 local TOGGLE_LABEL_GAP = 7
@@ -49,6 +50,7 @@ local TEXT_FIND, TEXT_RESUME = ns.L("Find Deals"), ns.L("Resume")
 local TEXT_CURRENT, TEXT_WORKING = ns.L("Up to Date"), ns.L("Calculating...")
 local TEXT_LEVEL, TEXT_PROFIT = ns.L("Level Up"), ns.L("Profit")
 local TEXT_GUARANTEED = ns.L("Guaranteed profit only")
+local TEXT_CURRENT_SKILL = ns.L("For my Enchant Lvl")
 local TEXT_CLOSE, TEXT_BUY_NEXT = ns.L("Close"), ns.L("Buy Next")
 local TEXT_TRY_AGAIN = ns.L("Try Again")
 local TEXT_PAGE = "%d / %d"
@@ -95,6 +97,7 @@ local TEXT_INVEST = ns.L("Invest %s  Expected profit %s")
 local TEXT_PROFIT_NEXT = ns.L("Next: %dx for %s  (%s)")
 local TEXT_MODE_TIP = ns.L("Profit finds expected gains; Level Up finds cheap items you can disenchant now.")
 local TEXT_GUARANTEED_TIP = ns.L("Keeps deals whose least valuable possible result is still profitable.")
+local TEXT_CURRENT_SKILL_TIP = ns.L("Only shows profitable items your current Enchanting skill can disenchant.")
 
 local market, events, buy
 local bids = {}
@@ -246,6 +249,27 @@ local function PaintMode()
     market.modeControl.profit:SetTextColor(profitColor.r, profitColor.g, profitColor.b)
     market.modeControl.toggle._refreshValue()
     if market.guaranteeControl then market.guaranteeControl:SetShown(profit) end
+    if market.skillControl then market.skillControl:SetShown(profit) end
+end
+
+local function BuildSkillFilter()
+    if market.skillControl then return end
+    local control = CreateFrame("Frame", nil, market)
+    control:SetSize(SKILL_FILTER_W, FILTER_H)
+    control:SetPoint("TOPRIGHT", -CONFIRM_EDGE, FILTER_TOP)
+    control.toggle = UI.BuildToggleControl(control, nil, Deals.CurrentSkillOnly,
+        function(value)
+            page = 1
+            Deals.SetCurrentSkillOnly(value)
+            WatchOpen(true)
+        end, FILTER_TOGGLE_W, FILTER_TOGGLE_H)
+    control.toggle:SetPoint("LEFT")
+    control.label = ns.Font(control, Style.FONT_SMALL, nil, T.muted)
+    control.label:SetPoint("LEFT", control.toggle, "RIGHT", TOGGLE_LABEL_GAP, 0)
+    control.label:SetText(TEXT_CURRENT_SKILL)
+    ns.Tooltip(control.toggle, TEXT_CURRENT_SKILL, TEXT_CURRENT_SKILL_TIP)
+    market.skillControl = control
+    control:SetShown(Deals.Mode() == Deals.MODE_PROFIT)
 end
 
 local function BuildMode()
@@ -363,6 +387,7 @@ Render = function()
     if market.dismissed then return end
     BuildMode()
     BuildGuarantee()
+    BuildSkillFilter()
     local job = Deals.Job()
     local list = job and job.visible or {}
     local pages = math.max(1, math.ceil(#list / MAX_ROWS))
@@ -581,7 +606,7 @@ WatchOpen = function(on)
     for _, event in ipairs(OPEN_EVENTS) do
         if on then events:RegisterEvent(event) else events:UnregisterEvent(event) end
     end
-    if on and Deals.Mode() == Deals.MODE_LEVEL then
+    if on and (Deals.Mode() == Deals.MODE_LEVEL or Deals.CurrentSkillOnly()) then
         events:RegisterEvent("SKILL_LINES_CHANGED")
     else
         events:UnregisterEvent("SKILL_LINES_CHANGED")

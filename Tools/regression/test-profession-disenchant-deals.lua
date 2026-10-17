@@ -6,6 +6,7 @@ local function Check(label, value) assert(value, label); checks = checks + 1 end
 local function Near(actual, expected) return math.abs(actual - expected) < 0.001 end
 
 local timers, requested = {}, {}
+local skill = 30
 local prices = {
     [100] = 50,
     [101] = 60,
@@ -48,7 +49,7 @@ ns.Professions.On = function() return true end
 local env = setmetatable({
     NaowhForever = ns,
     C_Timer = { After = After },
-    C_TradeSkillUI = { GetProfessionInfoBySkillLineID = function() return { skillLevel = 30 } end },
+    C_TradeSkillUI = { GetProfessionInfoBySkillLineID = function() return { skillLevel = skill } end },
     C_Item = {
         GetItemInfo = function(itemID)
             local name, quality, level, equip, classID = Item(itemID)
@@ -100,6 +101,17 @@ Deals.SetGuaranteedOnly(true)
 Check("the guaranteed filter keeps only risk-free expected outcomes",
     #profit.visible == 1 and profit.visible[1].item == 102)
 Deals.SetGuaranteedOnly(false)
+local allProfit = #profit.visible
+profit.candidates[1].required = 50
+Deals.SetCurrentSkillOnly(true)
+Check("the current-skill filter removes profitable items this character cannot disenchant",
+    #profit.visible == allProfit - 1)
+skill = 50
+Deals.SkillChanged()
+Check("a skill change refreshes the current-skill profit filter without rebuilding",
+    #profit.visible == allProfit)
+Deals.SetCurrentSkillOnly(false)
+skill = 30
 Deals.UpdateLive(profit.byItem[102], 195)
 Check("one live price update removes an unprofitable deal without rebuilding", profit.byItem[102] == nil)
 

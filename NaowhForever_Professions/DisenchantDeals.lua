@@ -24,6 +24,7 @@ local loadHead = 1
 local generation = 0
 local mode = MODE_PROFIT
 local guaranteedOnly = false
+local currentSkillOnly = false
 local active, listener
 local pumping, sortQueued = false, false
 
@@ -71,7 +72,9 @@ end
 local function RefreshVisible(job)
     wipe(job.visible)
     for _, entry in ipairs(job.candidates) do
-        if job.mode ~= MODE_PROFIT or not guaranteedOnly or entry.guaranteed then
+        local skillReady = not currentSkillOnly
+            or job.skill and entry.required and entry.required <= job.skill
+        if job.mode ~= MODE_PROFIT or (not guaranteedOnly or entry.guaranteed) and skillReady then
             job.visible[#job.visible + 1] = entry
             if job.mode == MODE_LEVEL and #job.visible == MAX_LEVEL_RESULTS then return end
         end
@@ -266,6 +269,20 @@ function Deals.SetGuaranteedOnly(value)
     Changed()
 end
 
+function Deals.CurrentSkillOnly()
+    return currentSkillOnly
+end
+
+function Deals.SetCurrentSkillOnly(value)
+    currentSkillOnly = value == true
+    local job = Deals.Job()
+    if job then
+        job.skill = EnchantingSkill()
+        RefreshVisible(job)
+    end
+    Changed()
+end
+
 function Deals.Job()
     local prices, scanned = Scan()
     local skill = EnchantingSkill()
@@ -315,7 +332,13 @@ function Deals.ScanChanged()
 end
 
 function Deals.SkillChanged()
-    if mode ~= MODE_LEVEL then return end
+    if mode == MODE_PROFIT then
+        local job = Deals.Job()
+        if not (currentSkillOnly and job) then return end
+        job.skill = EnchantingSkill()
+        RefreshVisible(job)
+        return Changed()
+    end
     local job = Deals.Job()
     if not job then Deals.Start() end
 end
