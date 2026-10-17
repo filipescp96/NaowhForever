@@ -240,6 +240,7 @@ local function BuildConfirm()
     c.cancel = ns.Button(c, TEXT_CANCEL, BUTTON_W, BUTTON_H, CancelBuy)
     c.cancel:SetPoint("BOTTOMLEFT", c, "BOTTOM", BUTTON_GAP, BUTTON_BOTTOM)
     market.confirm = c
+    c:Hide()
     c:HookScript("OnShow", PlaceShopping)
     c:HookScript("OnHide", PlaceShopping)
 end

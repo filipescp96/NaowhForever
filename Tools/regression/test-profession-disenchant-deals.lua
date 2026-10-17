@@ -117,4 +117,15 @@ ns.AuctionPriceList = function() return prices, 124 end
 Deals.ScanChanged()
 Check("a new manual scan invalidates both mode caches", Deals.Job() == nil)
 
+local favoriteFile = assert(io.open("NaowhForever_Professions/UI/FavoritePatterns.lua", "rb"))
+local favoriteSource = favoriteFile:read("*a"); favoriteFile:close()
+Check("the first favorite purchase confirmation reflows the auction side panels",
+    favoriteSource:find('c:Hide%(%)[\r\n]+%s*c:HookScript%("OnShow", PlaceShopping%)') ~= nil)
+local dealsFile = assert(io.open("NaowhForever_Professions/UI/DisenchantDeals.lua", "rb"))
+local dealsSource = dealsFile:read("*a"); dealsFile:close()
+Check("the first deal purchase confirmation reflows the shopping list",
+    dealsSource:find('confirm:Hide%(%)[\r\n]+%s*confirm:HookScript%("OnShow", QueuePlace%)') ~= nil)
+Check("the deal purchase confirmation names the selected item",
+    dealsSource:find("confirm.item:SetText%(ItemLabel%(entry%)%)") ~= nil)
+
 print(("test-profession-disenchant-deals: %d checks passed"):format(checks))

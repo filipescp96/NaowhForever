@@ -28,10 +28,11 @@ local NOTE_W = 188
 local FOOTER_NOTE_W = 150
 local COIN_SIZE = 12
 local MATERIAL_ICON_SIZE = 14
+local CONFIRM_ICON_SIZE = 18
 local PAGE_BUTTON_W, PAGE_BUTTON_H = 28, 20
 local PAGE_BUTTON_GAP, PAGE_EDGE = 4, 8
 local ACTION_W, ACTION_H = 92, 20
-local CONFIRM_H, CONFIRM_GAP = 108, 6
+local CONFIRM_H, CONFIRM_GAP = 132, 6
 local CONFIRM_EDGE, CONFIRM_LINE_GAP = 10, 4
 local CONFIRM_BUTTON_W, CONFIRM_BUTTON_GAP = 120, 6
 local CONFIRM_BUTTON_BOTTOM = 8
@@ -108,6 +109,12 @@ end
 
 local function SignedCoin(copper)
     return (copper >= 0 and "+" or "-") .. Coin(math.abs(copper))
+end
+
+local function ItemLabel(entry)
+    local texture = entry.icon and ("|T%d:%d:%d:0:0|t "):format(
+        entry.icon, CONFIRM_ICON_SIZE, CONFIRM_ICON_SIZE) or ""
+    return texture .. entry.name
 end
 
 local function SetEnabled(button, enabled)
@@ -469,13 +476,19 @@ local function BuildConfirm()
     confirm:EnableMouse(true)
     ns.Solid(confirm, "BACKGROUND", T.bg, Style.WINDOW_ALPHA):SetAllPoints()
     ns.Border(confirm, Style.BORDER_RGB)
-    confirm.line1 = ConfirmLine(confirm)
+    confirm.item = ns.Font(confirm, Style.FONT, nil)
+    confirm.item:SetPoint("TOPLEFT", CONFIRM_EDGE, -CONFIRM_EDGE)
+    confirm.item:SetPoint("RIGHT", -CONFIRM_EDGE, 0)
+    confirm.item:SetJustifyH("LEFT")
+    confirm.item:SetWordWrap(false)
+    confirm.line1 = ConfirmLine(confirm, confirm.item)
     confirm.line2 = ConfirmLine(confirm, confirm.line1)
     confirm.line3 = ConfirmLine(confirm, confirm.line2)
     confirm.buy = ns.Button(confirm, TEXT_BUY_NEXT, CONFIRM_BUTTON_W, Style.BUTTON_H, Primary)
     confirm.buy:SetPoint("BOTTOMRIGHT", confirm, "BOTTOM", -CONFIRM_BUTTON_GAP, CONFIRM_BUTTON_BOTTOM)
     confirm.close = ns.Button(confirm, TEXT_CLOSE, CONFIRM_BUTTON_W, Style.BUTTON_H, CancelBuy)
     confirm.close:SetPoint("BOTTOMLEFT", confirm, "BOTTOM", CONFIRM_BUTTON_GAP, CONFIRM_BUTTON_BOTTOM)
+    confirm:Hide()
     confirm:HookScript("OnShow", QueuePlace)
     confirm:HookScript("OnHide", QueuePlace)
     market.confirm = confirm
@@ -526,6 +539,10 @@ RenderConfirm = function()
     local confirm = market.confirm
     if not buy then return confirm:Hide() end
     local line1, line2, line3, enabled, retry = ConfirmText()
+    local entry = buy.entry
+    confirm.item:SetText(ItemLabel(entry))
+    local itemColor = ITEM_QUALITY_COLORS[entry.quality] or T.fg
+    confirm.item:SetTextColor(itemColor.r, itemColor.g, itemColor.b)
     confirm.line1:SetText(line1)
     confirm.line2:SetText(line2)
     confirm.line3:SetText(line3)
