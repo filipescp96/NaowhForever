@@ -73,6 +73,12 @@ local ns = {
         waypoint = { name = name, map = map, x = x, y = y }
         return true
     end,
+    TownNPCs = {
+        [10] = {
+            { 30, 30, "trade", "Catalog Supplies", "Trade Supplies", nil, "A" },
+            { 5, 5, "trade", "Horde Catalog", "Trade Supplies", nil, "H" },
+        },
+    },
 }
 settings.account = {}
 
@@ -124,6 +130,8 @@ env._G = env
 
 Load({ "Core/Features.lua", "NaowhForever_Professions/Professions.lua" }, env)
 local P = ns.Professions
+P.VendorSellerNames = { "Catalog Supplies", "Horde Catalog" }
+P.VendorSellers = { [333] = { 1, 2 } }
 P.Recipes = {
     Link = function(itemID) return "item:" .. itemID end,
     Owned = function() return {} end,
@@ -141,6 +149,11 @@ P.Shopping = {
 P.ShoppingVendorView = { Hide = Noop, OnMerchantEvent = function() viewEvents = viewEvents + 1 end }
 Load({ "NaowhForever_Professions/Vendors.lua" }, env)
 local V = P.Vendors
+
+check("a built-in vendor waypoint works before any merchant visit", V.VendorWaypoint(333) == true
+    and waypoint.name == "Catalog Supplies" and waypoint.map == 10 and waypoint.x == 30 and waypoint.y == 30)
+check("a built-in vendor waypoint ignores the other faction even when it is nearer",
+    waypoint.name ~= "Horde Catalog")
 
 local list, total = V.ShoppingNeeds()
 check("only Shopping List materials sold by this merchant are listed", #list == 2)
@@ -174,7 +187,7 @@ check("a vendor waypoint ignores sellers learned by the other faction", waypoint
 playerX, playerY = 0.9, 0.9
 check("the same item can route to a different seller from another position", V.VendorWaypoint(111) == true
     and waypoint.name == "Far Supplies")
-check("an item with no learned seller does not guess a location", V.VendorWaypoint(333) == false)
+check("an item with no known seller does not guess a location", V.VendorWaypoint(444) == false)
 check("and explains how to teach it a vendor", messages[#messages]:find("Visit a vendor", 1, true) ~= nil)
 messages = {}
 merchantShown = true

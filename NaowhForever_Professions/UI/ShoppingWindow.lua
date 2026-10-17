@@ -75,7 +75,7 @@ local TIP_QTY, TIP_QTY_HELP = ns.L("How Many"), ns.L("How many of the item to ad
 local TIP_ADD_HELP = ns.L("Puts that many of the item on the list.")
 local TEXT_CONSUMABLES = ns.L("Consumables")
 local TIP_CONSUMABLES_HELP = ns.L("Picks food, flasks, elixirs and more for your class to buy.")
-local TIP_VENDOR_WAYPOINT = ns.L("Sets a waypoint to the nearest vendor learned from merchant visits.")
+local TIP_VENDOR_WAYPOINT = ns.L("Sets a waypoint to the nearest known vendor for this material.")
 
 local window, side, scroll, input, qty, empty, total, clear, picker, pickerFullWidth, events
 local crafts, craftPool, items, itemPool, madeList, madePool = {}, {}, {}, {}, {}, {}
