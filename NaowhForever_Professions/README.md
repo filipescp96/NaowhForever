@@ -297,6 +297,9 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   It is built only while the setting is on and a matching merchant is open. Buying remains click-driven;
   merchant stack sizes and limited stock are respected, and the close button dismisses it until another
   merchant opens.
+- A vendor material's pin uses the shared waypoint system. Merchant visits remember which items that NPC
+  sells, its position and the visiting character's faction; clicking picks the nearest learned seller for
+  the current faction. A missing location is never guessed: the pin asks the player to visit a seller once.
 - BuyMerchantItem gives no result, and a merchant can refuse a purchase (full bags, sold out), so a vendor
   purchase counts on the Shopping List only once it lands: the bag count at the click is kept, and each
   BAG_UPDATE_DELAYED counts what arrived, up to what was bought. Buy and Buy All wait until it lands or
