@@ -263,6 +263,7 @@ L["Disband"] = true
 L["Discord"] = true
 L["Discovery"] = true
 L["Disenchant"] = true
+L["Disenchanting..."] = true
 L["Disenchant All"] = true
 L["Dismiss"] = true
 L["Dungeon Journal"] = true
