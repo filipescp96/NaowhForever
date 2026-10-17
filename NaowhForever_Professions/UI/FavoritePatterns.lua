@@ -206,6 +206,7 @@ local function Purchased(auctionID)
 end
 
 local function PlaceShopping()
+    if P.DisenchantDeals and P.DisenchantDeals.Place then P.DisenchantDeals.Place() end
     if ns.ShoppingListPlace then ns.ShoppingListPlace() end
 end
 

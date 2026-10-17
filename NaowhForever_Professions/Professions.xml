@@ -6,6 +6,7 @@
     <Script file="Data\VendorReagents.lua"/>
     <Script file="Data\CooldownRecipes.lua"/>
     <Script file="Data\ConsumableItems.lua"/>
+    <Script file="Data\DisenchantValues.lua"/>
     <Script file="Text.lua"/>
     <Script file="LinkView.lua"/>
     <Script file="Recipes.lua"/>
@@ -25,6 +26,7 @@
     <Script file="CraftQueue.lua"/>
     <Script file="Patterns.lua"/>
     <Script file="Disenchant.lua"/>
+    <Script file="DisenchantDeals.lua"/>
     <Script file="View\Style.lua"/>
     <Script file="View\Widgets.lua"/>
     <Script file="UI\SkillThresholds.lua"/>
@@ -52,5 +54,6 @@
     <Script file="UI\CraftTimer.lua"/>
     <Script file="UI\GatherTracking.lua"/>
     <Script file="UI\Disenchant.lua"/>
+    <Script file="UI\DisenchantDeals.lua"/>
     <Script file="UI\SettingsPage.lua"/>
 </Ui>
