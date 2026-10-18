@@ -197,8 +197,12 @@ local function Search(entry, state, excluded)
     RenderConfirm()
 end
 
+local function BuyRow(row)
+    Search(row.entry)
+end
+
 local function FillRow(index, entry)
-    local row = Popup.Row(market, index, TEXT_BUY, function(current) Search(current.entry) end, ROW_TOP)
+    local row = Popup.Row(market, index, TEXT_BUY, BuyRow, ROW_TOP)
     row.entry, row.item, row.spell, row.onTooltip = entry, entry.item, nil, AddTooltip
     row.icon:SetTexture(entry.icon)
     row.name:SetText(entry.name)
@@ -343,8 +347,13 @@ local function UpdateFooter(job)
     SetEnabled(market.footer.action, enabled)
 end
 
+local function Reflow()
+    Place()
+    if ns.ShoppingListPlace then ns.ShoppingListPlace() end
+end
+
 local function QueuePlace()
-    C_Timer.After(0, Place)
+    C_Timer.After(0, Reflow)
 end
 
 local function Watch(frame)
@@ -679,4 +688,5 @@ Deals.SetListener(Render)
 S.OnChange(function(key)
     if key == "enabled" or key == "disenchantDeals" then Apply() end
 end)
+hooksecurefunc(ns, "Apply", Apply)
 Apply()
