@@ -26,7 +26,7 @@ local RING_IN = 2
 local KEPT_ALPHA = 0.35
 local HIGHLIGHT_ALPHA = 0.15
 local WAIT_TIMEOUT = 8
-local DISENCHANT_MACRO = "/stopspelltarget\n/cast %s\n/use %d %d"
+local DISENCHANT_MACRO = "/stopspelltarget\n/cast %s"
 local OPEN_W, OPEN_H, OPEN_RIGHT, OPEN_DROP = 90, 22, 36, 7
 local EVENTS = { "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED" }
 
@@ -139,9 +139,10 @@ end
 local function Arm()
     if InCombatLockdown() then return end
     armed = not waiting and D.Next() or nil
+    all:SetAttribute("target-bag", armed and armed.bag or nil)
+    all:SetAttribute("target-slot", armed and armed.slot or nil)
     all:SetAttribute("type", armed and "macro" or nil)
-    all:SetAttribute("macrotext", armed and DISENCHANT_MACRO:format(
-        C_Spell.GetSpellName(D.SPELL), armed.bag, armed.slot) or nil)
+    all:SetAttribute("macrotext", armed and DISENCHANT_MACRO:format(C_Spell.GetSpellName(D.SPELL)) or nil)
     all:SetAlpha(armed and 1 or KEPT_ALPHA)
 end
 

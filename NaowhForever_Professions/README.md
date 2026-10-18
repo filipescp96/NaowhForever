@@ -342,9 +342,10 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   bleach and dyes. CooldownRecipes are Transmute: Arcanite (2 days), the other transmutes but Elemental
   Fire (1 day, shared) and Mooncloth (4 days).
 - Disenchanting casts a spell on an item, which only a click may do, so Disenchant All is a secure
-  button whose macro casts Disenchant (13262) and uses the next item's bag and slot: one item per
-  click. The secure macro only uses that slot while the spell waits for an item target, so a click
-  that does not start the spell never equips the item. The button is armed again after each bag update.
+  button whose macro casts Disenchant (13262), with the next item's bag and slot set as secure target
+  attributes: one item per click. The secure template targets that slot only while the spell waits for
+  an item target, so a click that does not start the spell never equips the item. The button is armed
+  again after each bag update.
 - An item the spell will not take leaves the cursor targeting after the click. The next secure click
   stops that target before casting again, so addon code never calls the protected stop function. Only
   that refused copy is skipped until a reload; another copy of the same item stays available.

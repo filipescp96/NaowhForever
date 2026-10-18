@@ -145,8 +145,10 @@ _G.NaowhForever.OpenDisenchant()
 assert(secureButton and eventFrame, "the disenchant secure button or event frame was not built")
 assert(secureButton:GetAttribute("type") == "macro", "the next item was not armed")
 local macro = secureButton:GetAttribute("macrotext")
-assert(macro:find("/stopspelltarget", 1, true) and macro:find("/use 1 2", 1, true),
-    "the secure macro does not clear and use the selected bag slot")
+assert(macro:find("/stopspelltarget", 1, true) and not macro:find("/use", 1, true),
+    "the secure macro can use the item when Disenchant did not start")
+assert(secureButton:GetAttribute("target-bag") == 1 and secureButton:GetAttribute("target-slot") == 2,
+    "the secure target attributes do not point at the selected bag slot")
 
 for _ = 1, 3 do
     targeting = false
