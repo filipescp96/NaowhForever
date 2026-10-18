@@ -31,6 +31,8 @@ local function CharacterData(store, create)
     return mine, true, false
 end
 
+local bagRoom = 999
+
 local function Wipe(t) for key in pairs(t) do t[key] = nil end return t end
 local function Noop() end
 local frameMethods = {}
@@ -97,6 +99,7 @@ ns = {
     L = function(text) return text end,
     Print = function(text) printed = text end,
     AccountSettings = function() return account end,
+    CraftBagRoom = function(_, _, _, limit) return math.min(bagRoom, limit) end,
     Professions = {
         CharacterData = CharacterData,
         Settings = {
@@ -349,6 +352,28 @@ assert(not queue.Running(), "a queue blocked by a tool or location remained stuc
 recipeRequirements = {}
 inventory[2000] = 2
 queue.Clear()
+
+bagRoom = 0
+queue.Add(tradeSkill.GetRecipeInfo(101), 1)
+local beforeBagBlock = #crafts
+queue.Click()
+assert(printed == "Your bags do not have room for Item 1001.",
+    "a full bag did not report the blocked queue output")
+assert(not queue.Running() and #crafts == beforeBagBlock,
+    "a queue batch started or stayed running without bag room")
+queue.Clear()
+
+bagRoom = 1
+inventory[2000] = 3
+queue.Add(tradeSkill.GetRecipeInfo(101), 3)
+queue.Click()
+assert(queue.Active().requested == 1 and quantity == "1",
+    "the prepared batch was not capped to the available bag room")
+queue.Click()
+assert(crafts[#crafts].id == 101 and crafts[#crafts].count == 1,
+    "Craft Next ignored the bag-room batch cap")
+queue.Clear()
+bagRoom = 999
 
 queue.Add(tradeSkill.GetRecipeInfo(100), 1)
 Wipe(shoppingAdds)
