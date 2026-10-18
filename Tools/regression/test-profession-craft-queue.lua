@@ -14,6 +14,24 @@ local settingChanged
 local printed
 local recipeRequirements = {}
 local playerName = "Tester"
+local playerGUID = "Player-Tester"
+local temporary = {}
+
+local function CharacterData(store, create)
+    if not playerGUID then
+        if not create then return end
+        temporary[store] = temporary[store] or {}
+        return temporary[store]
+    end
+    account[store] = account[store] or {}
+    local mine = account[store][playerGUID]
+    if mine or not create then return mine end
+    mine = {}
+    account[store][playerGUID] = mine
+    return mine, true, false
+end
+
+local bagRoom = 999
 
 local function Wipe(t) for key in pairs(t) do t[key] = nil end return t end
 local function Noop() end
@@ -81,7 +99,9 @@ ns = {
     L = function(text) return text end,
     Print = function(text) printed = text end,
     AccountSettings = function() return account end,
+    CraftBagRoom = function(_, _, _, limit) return math.min(bagRoom, limit) end,
     Professions = {
+        CharacterData = CharacterData,
         Settings = {
             Get = function(key) return settings[key] end,
             OnChange = function(fn) settingChanged = fn end,
@@ -146,6 +166,7 @@ local env = setmetatable({
     CreateFrame = CreateFrame,
     GetRealmName = function() return "Realm" end,
     UnitName = function() return playerName end,
+    UnitGUID = function() return playerGUID end,
     hooksecurefunc = function(_, name, fn)
         if name == "CraftRecipe" then craftHook = fn elseif name == "Apply" then applyHook = fn end
     end,
@@ -332,6 +353,28 @@ recipeRequirements = {}
 inventory[2000] = 2
 queue.Clear()
 
+bagRoom = 0
+queue.Add(tradeSkill.GetRecipeInfo(101), 1)
+local beforeBagBlock = #crafts
+queue.Click()
+assert(printed == "Your bags do not have room for Item 1001.",
+    "a full bag did not report the blocked queue output")
+assert(not queue.Running() and #crafts == beforeBagBlock,
+    "a queue batch started or stayed running without bag room")
+queue.Clear()
+
+bagRoom = 1
+inventory[2000] = 3
+queue.Add(tradeSkill.GetRecipeInfo(101), 3)
+queue.Click()
+assert(queue.Active().requested == 1 and quantity == "1",
+    "the prepared batch was not capped to the available bag room")
+queue.Click()
+assert(crafts[#crafts].id == 101 and crafts[#crafts].count == 1,
+    "Craft Next ignored the bag-room batch cap")
+queue.Clear()
+bagRoom = 999
+
 queue.Add(tradeSkill.GetRecipeInfo(100), 1)
 Wipe(shoppingAdds)
 assert(applyHook, "the profile hook was not installed with the runtime")
@@ -349,7 +392,9 @@ assert(shoppingAdds[100] == 1, "turning the queue back on through a profile did 
 queue.Clear()
 
 queue.Add(tradeSkill.GetRecipeInfo(100), 1)
+local firstQueue = queue.List()
 playerName = "Alt"
+playerGUID = "Player-Alt"
 Load({ "NaowhForever_Professions/CraftQueue.lua" }, env)
 local alt = ns.Professions.CraftQueue
 assert(next(alt.List().crafts) == nil and next(alt.List().prerequisites) == nil,
@@ -357,20 +402,20 @@ assert(next(alt.List().crafts) == nil and next(alt.List().prerequisites) == nil,
 alt.Add(tradeSkill.GetRecipeInfo(101), 1)
 assert(alt.List().crafts[101] and not alt.List().crafts[100],
     "the second character did not get an independent crafting queue")
-assert(queue.List().crafts[100] and not queue.List().crafts[101],
+assert(firstQueue.crafts[100] and not firstQueue.crafts[101],
     "the first character's crafting queue changed with the second character's")
 alt.Clear()
 
-playerName = "Unknown"
+playerName, playerGUID = "Unknown", nil
 Load({ "NaowhForever_Professions/CraftQueue.lua" }, env)
 local unknown = ns.Professions.CraftQueue
 unknown.Add(tradeSkill.GetRecipeInfo(101), 1)
-assert(account.profCraftQueue["Unknown-Realm"] == nil, "the queue was saved under an unknown character")
-playerName = "Late"
-assert(next(unknown.List().crafts) == nil and account.profCraftQueue["Late-Realm"],
+assert(account.profCraftQueue["Player-Unknown"] == nil, "the queue was saved under an unknown character")
+playerName, playerGUID = "Late", "Player-Late"
+assert(next(unknown.List().crafts) == nil and account.profCraftQueue["Player-Late"],
     "the queue did not pick up the character once its name was known")
 
-playerName = "Tester"
+playerName, playerGUID = "Tester", "Player-Tester"
 Load({ "NaowhForever_Professions/CraftQueue.lua" }, env)
 queue = ns.Professions.CraftQueue
 

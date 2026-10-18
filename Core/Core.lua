@@ -138,7 +138,7 @@ function ns.Lower(text)
     return (text:lower():gsub(LATIN_CAPITAL, LatinLower))
 end
 
-ns.CODE_BUILD = "1.1.27"
+ns.CODE_BUILD = "1.1.28"
 
 ns.THEME = {
     bg     = { r = 0x19 / 255, g = 0x1b / 255, b = 0x1d / 255 },
@@ -671,7 +671,8 @@ end
 
 function ns.RefitPixels()
     for owner in pairs(fitters) do
-        if owner:IsVisible() then FitOwner(owner) end
+        local shown = owner:IsVisible()
+        if (issecretvalue and issecretvalue(shown)) or shown then FitOwner(owner) end
     end
 end
 

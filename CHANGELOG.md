@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changed
+- Dungeon Journal: its data is updated to WoW Forever build 1.60.1.70450.
+- Naowh Score: refitted to the latest Forever items.
+
+## 1.1.28
+
+### Changed
+- Daily Word #3 is out (QoL > Travel, or /nf word).
+
 ## 1.1.27
 
 ### Fixed
