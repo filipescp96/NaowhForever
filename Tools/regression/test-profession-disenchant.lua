@@ -58,10 +58,11 @@ function methods.IsShown(self) return self.shown end
 function methods.SetAttribute(self, key, value) self.attributes[key] = value end
 function methods.GetAttribute(self, key) return self.attributes[key] end
 function methods.SetText(self, text) self.text = text end
+function methods.SetPropagateKeyboardInput(self, propagate) self.propagate = propagate end
 function methods.GetFrameLevel() return 1 end
 function methods.CreateTexture() return Widget() end
 
-local secureButton, eventFrame
+local secureButton, eventFrame, keyFrame
 local timers, printed = {}, {}
 local targeting, refused = false, false
 local uiRecord = { bag = 1, slot = 2, itemID = 200, link = "[Test Item]", icon = 1,
@@ -125,6 +126,7 @@ _G.CreateFrame = function()
     frame.SetScript = function(self, name, fn)
         setScript(self, name, fn)
         if name == "OnEvent" then eventFrame = self end
+        if name == "OnKeyDown" then keyFrame = self end
     end
     return frame
 end
@@ -150,34 +152,52 @@ assert(macro:find("/stopspelltarget", 1, true) and not macro:find("/use", 1, tru
 assert(secureButton:GetAttribute("target-bag") == 1 and secureButton:GetAttribute("target-slot") == 2,
     "the secure target attributes do not point at the selected bag slot")
 
+local function Click(beforePost)
+    secureButton.scripts.PreClick(secureButton, "LeftButton", false)
+    if beforePost then beforePost() end
+    secureButton.scripts.PostClick(secureButton, "LeftButton", false)
+end
+
+local timerCount = #timers
+targeting = false
+Click(function()
+    eventFrame.scripts.OnEvent(eventFrame, "UNIT_SPELLCAST_FAILED", "player", nil, disenchant.SPELL)
+end)
+assert(secureButton:GetAttribute("type") == "macro" and #timers == timerCount,
+    "a synchronous failed cast left the button waiting")
+
 for _ = 1, 3 do
     targeting = false
-    secureButton.scripts.PostClick(secureButton, "LeftButton", false)
+    Click()
     assert(secureButton:GetAttribute("type") == nil and secureButton.text == "Disenchanting...",
         "the button rearmed before the disenchant completed")
-    local timerCount = #timers
-    secureButton.scripts.PostClick(secureButton, "LeftButton", false)
+    timerCount = #timers
+    Click()
     assert(#timers == timerCount, "an extra click started another disenchant wait")
     eventFrame.scripts.OnEvent(eventFrame, "BAG_UPDATE_DELAYED")
     assert(secureButton:GetAttribute("type") == "macro", "a bag update did not rearm the next copy")
 end
 
 targeting = false
-secureButton.scripts.PostClick(secureButton, "LeftButton", false)
+Click()
 eventFrame.scripts.OnEvent(eventFrame, "UNIT_SPELLCAST_FAILED", "player", nil, 999)
 assert(secureButton:GetAttribute("type") == nil, "an unrelated failed spell released the wait")
 eventFrame.scripts.OnEvent(eventFrame, "UNIT_SPELLCAST_FAILED", "player", nil, disenchant.SPELL)
 assert(secureButton:GetAttribute("type") == "macro", "a failed disenchant did not release the wait")
 
 targeting = false
-secureButton.scripts.PostClick(secureButton, "LeftButton", false)
+Click()
 for _, timer in ipairs(timers) do timer() end
 assert(secureButton:GetAttribute("type") == "macro", "the missing-event timeout did not rearm the button")
 
 targeting = true
-secureButton.scripts.PostClick(secureButton, "LeftButton", false)
+Click()
 assert(disenchant.Failed(uiRecord) and secureButton:GetAttribute("type") == nil,
     "a refused copy was not skipped without calling the protected API")
-assert(#printed > 0, "a refused copy did not explain why it was skipped")
+assert(#printed > 0 and printed[#printed]:find("Right%-click") and printed[#printed]:find("Escape"),
+    "a refused copy did not explain how to cancel the item cursor")
+assert(keyFrame, "the window keyboard frame was not built")
+keyFrame.scripts.OnKeyDown(keyFrame, "ESCAPE")
+assert(keyFrame.propagate == true, "Escape was not passed through to cancel the item cursor")
 
 print("Profession disenchant regression test: PASS")

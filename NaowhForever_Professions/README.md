@@ -346,11 +346,14 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   attributes: one item per click. The secure template targets that slot only while the spell waits for
   an item target, so a click that does not start the spell never equips the item. The button is armed
   again after each bag update.
-- An item the spell will not take leaves the cursor targeting after the click. The next secure click
-  stops that target before casting again, so addon code never calls the protected stop function. Only
-  that refused copy is skipped until a reload; another copy of the same item stays available.
-- The button waits for the bag or failed-cast event before it arms another item. Extra clicks while a
-  disenchant is resolving do nothing, and an eight-second fallback releases a missing event.
+- An item the spell will not take leaves the cursor targeting after the click. The chat warning tells
+  the player to right-click or press Escape before clicking a bag item; Escape is passed through while
+  the cursor is active. The next secure click also stops that target before casting again, so addon code
+  never calls the protected stop function. Only that refused copy is skipped until a reload.
+- The button waits for the bag or failed-cast event before it arms another item. A failed event that
+  arrives synchronously during the secure click is remembered until PostClick, so it cannot leave the
+  button waiting. Extra clicks while a disenchant resolves do nothing, and an eight-second fallback
+  releases a missing event.
 - The window holds that secure button and so is protected: it opens out of combat only, and closes on
   PLAYER_REGEN_DISABLED, the last moment it still may.
 - Disenchant takes Uncommon to Epic weapons and armor; shirts and tabards never. The skill an item

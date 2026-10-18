@@ -46,14 +46,14 @@ local TEXT_KEEP_ALL_HINT = ns.L("Shift-right-click: keep every copy")
 local TEXT_KEPT_COPY = ns.L("Kept: this one only. Right-click: disenchant it again")
 local TEXT_KEPT_ALL = ns.L("Kept: every copy. Right-click: disenchant them again")
 local TEXT_REFUSED = ns.L("The game would not disenchant this (skill too low?). Skipped until you reload.")
-local TEXT_REFUSED_CHAT = ns.L("%s could not be disenchanted, skipped until you reload.")
+local TEXT_REFUSED_CHAT = ns.L("%s could not be disenchanted, skipped until you reload. Right-click or press Escape to cancel the item cursor.")
 local TEXT_COMBAT = ns.L("The Disenchant window cannot open in combat.")
 local TEXT_UNKNOWN = ns.L("You do not know Disenchant.")
 local TEXT_OFF = ns.L("Turn on the Disenchant Window in the Professions settings first.")
 
 local window, scroll, grid, summary, all, empty, events
 local slots = {}
-local armed, waiting
+local armed, waiting, clicking, failedThisClick
 local waitGen = 0
 
 local function On()
@@ -171,8 +171,21 @@ local function OnAllEnter(self)
     GameTooltip:Show()
 end
 
+local function OnAllPreClick(_, _, down)
+    if down then return end
+    clicking, failedThisClick = true, false
+end
+
 local function OnAllPostClick(self, _, down)
-    if down or not armed then return end
+    if down then return end
+    clicking = false
+    if not armed then return end
+    if failedThisClick then
+        failedThisClick = false
+        waiting = false
+        Redraw()
+        return
+    end
     waiting = not SpellIsTargeting()
     if not waiting then
         D.MarkFailed(armed)
@@ -201,6 +214,10 @@ local function OnEvent(_, event, unit, _, spellID)
         waitGen = waitGen + 1
     elseif event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
         if unit ~= "player" or spellID ~= D.SPELL then return end
+        if clicking and armed then
+            failedThisClick = true
+            return
+        end
         waiting = false
         waitGen = waitGen + 1
     end
@@ -214,6 +231,7 @@ local function BuildAll()
     all:SetAttribute("useOnKeyDown", false)
     all:HookScript("OnEnter", OnAllEnter)
     all:HookScript("OnLeave", GameTooltip_Hide)
+    all:SetScript("PreClick", OnAllPreClick)
     all:SetScript("PostClick", OnAllPostClick)
 end
 
@@ -246,7 +264,7 @@ local function OnShow()
 end
 
 local function OnHide()
-    waiting = false
+    waiting, clicking, failedThisClick = false, false, false
     waitGen = waitGen + 1
     events:UnregisterAllEvents()
 end
@@ -254,6 +272,10 @@ end
 local function OnKeyDown(keys, key)
     if InCombatLockdown() then return end
     local escape = key == "ESCAPE"
+    if escape and SpellIsTargeting() then
+        keys:SetPropagateKeyboardInput(true)
+        return
+    end
     keys:SetPropagateKeyboardInput(not escape)
     if escape then window:Hide() end
 end
