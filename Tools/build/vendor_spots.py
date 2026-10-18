@@ -32,7 +32,8 @@ def reagent_ids(text=None):
 
 def town_names(text=None):
     text = TOWNS.read_text(encoding="utf-8") if text is None else text
-    return set(re.findall(r'^\s*\{\s*[\d.]+,\s*[\d.]+,\s*"[^"]+",\s*"((?:[^"\\]|\\.)*)"', text, re.M))
+    rows = re.findall(r'^\s*\{\s*[\d.]+,\s*[\d.]+,\s*"[^"]+",\s*"((?:[^"\\]|\\.)*)",\s*"([^"]*)"', text, re.M)
+    return {name for name, title in rows if not title.startswith("Darkmoon Faire")}
 
 
 def seller_rows(item_id):

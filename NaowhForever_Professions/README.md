@@ -300,8 +300,8 @@ Each layer uses only the ones above it, or reads a later one's table at call tim
   merchant opens.
 - A vendor material's pin uses the shared waypoint system. Its built-in seller index is generated from
   Wowhead Classic's unlimited-stock inventories and matched to the Forever-adjusted NPC positions already
-  in `Shared/Game/Towns.lua`; it has no runtime addon dependency. Merchant visits correct or extend that
-  index for custom and moved Forever sellers. Clicking picks the nearest faction-compatible seller from
+  in `Shared/Game/Towns.lua`; it has no runtime addon dependency. Merchant visits add to that
+  index, so custom and moved Forever sellers are found too. Clicking picks the nearest faction-compatible seller from
   both sources. A missing location is never guessed: the pin asks the player to visit a seller once.
 - BuyMerchantItem gives no result, and a merchant can refuse a purchase (full bags, sold out), so a vendor
   purchase counts on the Shopping List only once it lands: the bag count at the click is kept, and each
