@@ -5,7 +5,7 @@ local checks = 0
 local function Check(label, value) assert(value, label); checks = checks + 1 end
 local function Near(actual, expected) return math.abs(actual - expected) < 0.001 end
 
-local timers, requested = {}, {}
+local timers, requested, cached = {}, {}, {}
 local skill = 30
 local prices = {
     [100] = 50,
@@ -61,7 +61,7 @@ local env = setmetatable({
             return itemID, nil, nil, equip, nil, classID
         end,
         GetDetailedItemLevelInfo = function(link) return tonumber(link:match("%d+")) and 21 end,
-        IsItemDataCachedByID = function() return true end,
+        IsItemDataCachedByID = function(itemID) return cached[itemID] ~= false end,
         RequestLoadItemDataByID = function(itemID) requested[itemID] = true end,
     },
     GetProfessions = function() end,
@@ -128,6 +128,43 @@ prices = { [100] = 50, [10940] = 10, [10998] = 20, [10978] = 200 }
 ns.AuctionPriceList = function() return prices, 124 end
 Deals.ScanChanged()
 Check("a new manual scan invalidates both mode caches", Deals.Job() == nil)
+
+prices = { [10940] = 10, [10998] = 20, [10978] = 200 }
+for itemID = 1000, 1006 do
+    prices[itemID], cached[itemID] = 55, false
+end
+ns.AuctionPriceList = function() return prices, 125 end
+Deals.ScanChanged()
+Deals.SetMode(Deals.MODE_PROFIT)
+Deals.Start()
+assert(table.remove(timers, 1))()
+local resumableProfit = Deals.Job()
+Check("an uncached profit job finishes iterating before its item loads",
+    resumableProfit.iterated and resumableProfit.pendingCount == 7)
+
+Deals.SetMode(Deals.MODE_LEVEL)
+Deals.Start()
+assert(table.remove(timers, 2))()
+local resumableLevel = Deals.Job()
+Check("an uncached level job can wait alongside the profit job",
+    resumableLevel.iterated and resumableLevel.pendingCount == 7)
+Deals.SetMode(Deals.MODE_PROFIT)
+Deals.Start()
+Drain()
+Check("switching back to an iterated job restarts its current-generation load pump",
+    requested[1000] and requested[1006])
+
+cached[1000] = true
+Deals.ItemLoaded(1000, true)
+local staleSort = assert(table.remove(timers, 1))
+Deals.SetMode(Deals.MODE_LEVEL)
+Deals.Start()
+staleSort()
+Drain()
+cached[1001] = true
+Deals.ItemLoaded(1001, true)
+Check("a stale sort callback does not block the next mode's deferred sort", #timers > 0)
+Drain()
 
 local favoriteFile = assert(io.open("NaowhForever_Professions/UI/FavoritePatterns.lua", "rb"))
 local favoriteSource = favoriteFile:read("*a"); favoriteFile:close()

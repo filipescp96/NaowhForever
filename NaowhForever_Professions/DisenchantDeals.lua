@@ -26,7 +26,7 @@ local mode = MODE_PROFIT
 local guaranteedOnly = false
 local currentSkillOnly = false
 local active, listener
-local pumping, sortQueued = false, false
+local pumpGeneration, sortGeneration
 
 local Deals = { MODE_LEVEL = MODE_LEVEL, MODE_PROFIT = MODE_PROFIT }
 P.DisenchantDeals = Deals
@@ -129,7 +129,7 @@ local function QueueLoad(itemID)
 end
 
 PumpLoads = function(gen)
-    if gen ~= generation or not active then pumping = false return end
+    if gen ~= generation or not active or pumpGeneration ~= gen then return end
     local sent = 0
     while sent < LOAD_BATCH and loadHead <= #loadQueue do
         local itemID = loadQueue[loadHead]
@@ -145,14 +145,14 @@ PumpLoads = function(gen)
         C_Timer.After(LOAD_DELAY, function() PumpLoads(gen) end)
     else
         wipe(loadQueue)
-        loadHead, pumping = 1, false
+        loadHead, pumpGeneration = 1, nil
     end
 end
 
 local function StartPump()
-    if pumping or not active then return end
-    pumping = true
+    if not active or pumpGeneration == generation then return end
     local gen = generation
+    pumpGeneration = gen
     C_Timer.After(0, function() PumpLoads(gen) end)
 end
 
@@ -312,7 +312,7 @@ end
 
 function Deals.Pause()
     generation = generation + 1
-    active, pumping, sortQueued = nil, false, false
+    active, pumpGeneration, sortGeneration = nil, nil, nil
 end
 
 function Deals.ScanChanged()
@@ -357,12 +357,13 @@ function Deals.ItemLoaded(itemID, loaded)
         end
     end
     if not touched then return end
-    if not sortQueued then
-        sortQueued = true
+    if sortGeneration ~= generation then
         local gen = generation
+        sortGeneration = gen
         C_Timer.After(0, function()
+            if sortGeneration ~= gen then return end
+            sortGeneration = nil
             if gen ~= generation or not active then return end
-            sortQueued = false
             Sort(active)
             Changed()
         end)
