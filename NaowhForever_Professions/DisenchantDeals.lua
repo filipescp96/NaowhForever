@@ -99,7 +99,7 @@ end
 
 local function Entry(itemID, price, prices, whichMode, itemLink)
     local name, link, quality, baseLevel, _, _, _, _, equip, icon, _, classID = GetItemInfo(itemLink or itemID)
-    if not name or not Values.Takes(classID, quality, equip) then return end
+    if not name or not Values.ItemTakes(itemID, classID, quality, equip) then return end
     local level = C_Item.GetDetailedItemLevelInfo(link) or baseLevel
     local required = Values.RequiredSkill(level, quality)
     local gross, outcomes = Values.Expected(classID, quality, level, prices)
@@ -175,7 +175,7 @@ end
 
 local function Candidate(job, itemID, price)
     local _, _, _, equip, _, classID = GetItemInfoInstant(itemID)
-    if not Values.Equipment(classID, equip) then return end
+    if not Values.ItemEligible(itemID, classID, equip) then return end
     if not IsItemDataCached(itemID) then return Request(job, itemID, price) end
     Evaluate(job, itemID, price)
 end
@@ -440,4 +440,9 @@ end
 
 function Deals.Skill()
     return EnchantingSkill()
+end
+
+function Deals.MeetsSkill(required)
+    local skill = EnchantingSkill()
+    return required and skill and skill >= required or false
 end
