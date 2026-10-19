@@ -25,7 +25,7 @@ local S = ns.UI.ModuleSettings("professions", {
     buyMaterials = F.buyMaterials, buyVendor = F.buyVendor,
     craftROI = F.craftROI, roiGreyBelow = 10, roiGreenFrom = 30,
     disenchant = F.disenchant, disenchantDeals = F.disenchantDeals, disenchantDealsTooltip = false,
-    disenchantDealsTooltipEnchanters = false, disenchantDealsTooltipAuctionOnly = false,
+    disenchantDealsTooltipAllCharacters = false, disenchantDealsTooltipAuctionOnly = false,
     filterMaterials = false, filterSkillUp = false, filterProfit = false,
     filterNotSelling = false, filterBoE = false, filterBoP = false, filterFavorite = false,
 })
@@ -37,6 +37,19 @@ local P = {
     State = { offset = 0, query = "", linked = false, stale = true, listChanged = false },
 }
 ns.Professions = P
+
+function P.DetailedDealTooltipsAllCharacters()
+    local saved = S.Raw("disenchantDealsTooltipAllCharacters")
+    if saved ~= nil then return saved end
+    local onlyEnchanters = S.Raw("disenchantDealsTooltipEnchanters")
+    if onlyEnchanters == nil then return false end
+    return not onlyEnchanters
+end
+
+function P.SetDetailedDealTooltipsAllCharacters(on)
+    S.DB().disenchantDealsTooltipEnchanters = nil
+    S.Set("disenchantDealsTooltipAllCharacters", on == true)
+end
 
 local temporary = {}
 
