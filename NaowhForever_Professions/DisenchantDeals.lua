@@ -16,7 +16,6 @@ local LOAD_BATCH = 5
 local LOAD_DELAY = 0.05
 local MAX_LEVEL_RESULTS = 10
 local PERCENT = 100
-local PROFESSION_SLOTS = 5
 
 local jobs = {}
 local tooltipCache = {}
@@ -37,18 +36,18 @@ local function Changed()
     if listener then listener() end
 end
 
+local function SlotSkill(index)
+    if not index then return end
+    local _, _, rank, _, _, _, line, modifier = GetProfessionInfo(index)
+    if line == P.Disenchant.ENCHANTING then return (rank or 0) + (modifier or 0) end
+end
+
 local function EnchantingSkill()
     local info = C_TradeSkillUI.GetProfessionInfoBySkillLineID(P.Disenchant.ENCHANTING)
     local skill = info and tonumber(info.skillLevel)
     if skill and skill > 0 then return skill end
-    local professions = { GetProfessions() }
-    for slot = 1, PROFESSION_SLOTS do
-        local index = professions[slot]
-        if index then
-            local _, _, rank, _, _, _, line, modifier = GetProfessionInfo(index)
-            if line == P.Disenchant.ENCHANTING then return (rank or 0) + (modifier or 0) end
-        end
-    end
+    local first, second = GetProfessions()
+    return SlotSkill(first) or SlotSkill(second)
 end
 
 local function Scan()

@@ -87,6 +87,15 @@ Check("Forever's no-disenchant equipment overrides otherwise valid weapon rules"
     Values.Takes(2, 2, "INVTYPE_RANGEDRIGHT") and not Values.ItemTakes(11287, 2, 2, "INVTYPE_RANGEDRIGHT"))
 Check("the current Enchanting skill reports met and unmet requirements",
     Deals.MeetsSkill(30) and not Deals.MeetsSkill(31))
+skill = 0
+env.GetProfessions = function() return nil, 2 end
+env.GetProfessionInfo = function(index)
+    if index == 2 then return "Enchanting", nil, 25, 75, nil, nil, 333, 5 end
+end
+Check("the Enchanting skill falls back to the second profession slot",
+    Deals.MeetsSkill(30) and not Deals.MeetsSkill(31))
+skill = 30
+env.GetProfessions, env.GetProfessionInfo = function() end, function() end
 local tooltipEntry = Deals.TooltipEntry(100)
 Check("an item tooltip can calculate disenchant details without a deal-list job",
     tooltipEntry and tooltipEntry.gross == 62 and tooltipEntry.scanPrice == 50)
