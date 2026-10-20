@@ -328,7 +328,6 @@ page:Card({
           help = "Shows possible materials, expected value, required skill and profit on deal tooltips." },
         { key = "disenchantDealsTooltipAllCharacters", label = "Show on All Characters", toggle = true,
           needs = DisenchantDealsTooltipOn, why = "Needs Detailed Deal Tooltips",
-          get = P.DetailedDealTooltipsAllCharacters, set = P.SetDetailedDealTooltipsAllCharacters,
           help = "Shows detailed deal tooltips on characters without Enchanting." },
         { key = "disenchantDealsTooltipAuctionOnly", label = "Only At Auction House", toggle = true,
           needs = DisenchantDealsTooltipOn, why = "Needs Detailed Deal Tooltips",

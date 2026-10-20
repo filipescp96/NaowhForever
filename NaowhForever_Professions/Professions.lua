@@ -38,18 +38,16 @@ local P = {
 }
 ns.Professions = P
 
-function P.DetailedDealTooltipsAllCharacters()
-    local saved = S.Raw("disenchantDealsTooltipAllCharacters")
-    if saved ~= nil then return saved end
+local function SplitTooltipCharacters()
+    if S.Raw("disenchantDealsTooltipAllCharacters") ~= nil then return end
     local onlyEnchanters = S.Raw("disenchantDealsTooltipEnchanters")
-    if onlyEnchanters == nil then return false end
-    return not onlyEnchanters
+    local all = S.Raw("disenchantDealsTooltip") == true
+    if onlyEnchanters ~= nil then all = not onlyEnchanters end
+    S.DB().disenchantDealsTooltipEnchanters = nil
+    S.Set("disenchantDealsTooltipAllCharacters", all)
 end
 
-function P.SetDetailedDealTooltipsAllCharacters(on)
-    S.DB().disenchantDealsTooltipEnchanters = nil
-    S.Set("disenchantDealsTooltipAllCharacters", on == true)
-end
+hooksecurefunc(ns, "Apply", SplitTooltipCharacters)
 
 local temporary = {}
 

@@ -181,7 +181,7 @@ Check("the first deal purchase confirmation reflows the shopping list",
 Check("the deal purchase confirmation names the selected item",
     dealsSource:find("confirm.item:SetText%(ItemLabel%(entry%)%)") ~= nil)
 Check("detailed deal tooltips default to characters that know Enchanting",
-    dealsSource:find('not P.DetailedDealTooltipsAllCharacters%(%) and not P.Disenchant.Known%(%)') ~= nil)
+    dealsSource:find('not S.Get%("disenchantDealsTooltipAllCharacters"%) and not P.Disenchant.Known%(%)') ~= nil)
 Check("detailed deal tooltips can be limited to the open auction house",
     dealsSource:find('S.Get%("disenchantDealsTooltipAuctionOnly"%) and not AuctionHouseOpen%(%)') ~= nil)
 Check("detailed deal tooltips use the shared item-tooltip processor instead of deal rows",
